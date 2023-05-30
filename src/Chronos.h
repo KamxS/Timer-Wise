@@ -3,7 +3,8 @@
 #include <string>
 #include <chrono>
 #include <map>
-#include <vector>
+#include <set>
+#include <ranges>
 
 
 class Serializable {
@@ -20,10 +21,11 @@ class Timer {
 	std::chrono::milliseconds current;
 
 	std::chrono::steady_clock::time_point lastChecked;
-	Timer(std::chrono::seconds dur): current(std::chrono::milliseconds(0)),duration(dur) {
+	Timer(std::string name, std::chrono::seconds dur): name(name), current(std::chrono::milliseconds(0)),duration(dur) {
 		lastChecked = std::chrono::steady_clock::now();
 	}
 public:
+	std::string name;
 	float getDuration() const {
 		return duration.count();
 	}
@@ -34,62 +36,64 @@ public:
 };
 
 class Timers {
-	std::map<std::string, Timer*> activeTimers;
-	std::map<std::string, Timer*> inactiveTimers;
-	std::vector<std::string> removeQueue;
-	std::mutex timersMut;
-	std::jthread timerThread;
+	Timer* activeTimer;
+	std::map<std::string, Timer*> timers;
 public: 
-	Timers() : inactiveTimers{}, activeTimers{}, timersMut{}, timerThread{}, removeQueue{}  {}
+	Timers() = default;
 
 	void Update() {
-		for (auto& timerPair : activeTimers) {
-			auto name = timerPair.first;
-			auto timer = timerPair.second;
-			timer->current += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - timer->lastChecked));
-			if (timer->current >= timer->duration) {
-				removeQueue.push_back(timerPair.first);
-				continue;
-			}
-			timer->lastChecked = std::chrono::steady_clock::now();
+		if (activeTimer == nullptr) return;
+		activeTimer->current += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer->lastChecked));
+		activeTimer->lastChecked = std::chrono::steady_clock::now();
+		if (activeTimer->current >= activeTimer->duration) {
+			stopTimer();
 		}
-		for (auto timer : removeQueue) {
-			stopTimer(timer);
-		}
-		removeQueue.clear();
 	}
 
 	void newTimer(std::string name, std::chrono::seconds duration) {
-		auto timer = new Timer(duration);
-		inactiveTimers.insert(std::make_pair(name, timer));
+		if (timers.contains(name)) return;
+		auto t = new Timer(name, duration);
+		timers.insert(std::make_pair(name, t));
 	}
 
 	void startTimer(std::string name) {
-		if (!inactiveTimers.contains(name)) throw std::domain_error("Couldn't find specified Timer");
-		auto timer = inactiveTimers[name];
-		timer->lastChecked = std::chrono::steady_clock::now();
-		activeTimers.insert(std::make_pair(name,timer));
-		inactiveTimers.erase(name);
+		if (activeTimer != nullptr) return;
+		activeTimer = timers[name];
+		activeTimer->lastChecked = std::chrono::steady_clock::now();
 	}
 
-	void stopTimer(std::string name) {
-		if (!activeTimers.contains(name)) throw std::domain_error("Couldn't find specified Timer");
-		auto timer = activeTimers[name];
-		activeTimers.erase(name);
-		inactiveTimers.insert(std::make_pair(name, timer));
+	void stopTimer() {
+		activeTimer = nullptr;
 	}
 
-	std::map<std::string, const Timer*> getTimers() {
-		std::map<std::string,const Timer*> out{};
+	const Timer* getActiveTimer() const {
+		return activeTimer;
+	}
 
-		for (auto& timer : activeTimers) {
-			out.insert(std::make_pair(timer.first, timer.second));
-		}
-		
-		for (auto& timer : inactiveTimers) {
-			out.insert(std::make_pair(timer.first, timer.second));
-		}
-		
-		return out;
+	const std::map<std::string, Timer*> getTimers() const {
+		return timers;
 	}
 };
+
+
+/*
+	timer {
+		time: 60
+		timeLeft: 32
+		type: daily
+		days: ["Monday","Friday"]
+	},
+	timer2 {
+		time: 60
+		timeLeft: 32
+		type: daily
+		days: [] // Everyday
+	},
+	timer3 {
+		time: 260 
+		timeLeft: 120 
+		type: weekly 
+		days: [] 
+	}
+
+*/

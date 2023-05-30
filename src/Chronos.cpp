@@ -47,18 +47,8 @@ int main()
 	t.newTimer("timer2", 20s);
 	t.newTimer("timer3", 1s);
 	t.startTimer("timer1");
-	t.startTimer("timer2");
-/*
+	//t.startTimer("timer2");
 	
-	t.startTimer("timer1");
-	std::this_thread::sleep_for(200ms);
-	t.startTimer("timer2");
-	std::this_thread::sleep_for(50ms);
-	t.startTimer("timer3");
-
-	std::this_thread::sleep_for(1s);
-*/
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -87,9 +77,16 @@ int main()
 
         {
             ImGui::Begin("Timers");
-            for (auto& timer : t.getTimers()) {
-                float progress = timer.second->getCurrent() / timer.second->getDuration();
-                ImGui::ProgressBar(progress, ImVec2(-1.f, 0.f), timer.first.c_str());
+            for (auto& timerPair : t.getTimers()) {
+                auto timer = timerPair.second;
+                auto name = timerPair.first;
+                if (t.getActiveTimer() != nullptr) {
+                    if (t.getActiveTimer()->name == name) {
+                        ImGui::Text("Active Timer");
+                    }
+                }
+                float progress = timer->getCurrent() / timer->getDuration();
+                ImGui::ProgressBar(progress, ImVec2(-1.f, 0.f), name.c_str());
             }
             ImGui::End();
         }
