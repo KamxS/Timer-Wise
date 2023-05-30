@@ -3,6 +3,10 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <nlohmann/json.hpp>
+#include <fstream>
+
+#include <filesystem>
 
 #include "Chronos.h"
 #include <iostream>
@@ -15,6 +19,26 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+void loadFiles(Timers& timers) {
+    auto path = std::filesystem::current_path() / "../data";
+    if (std::filesystem::is_directory(path) == 0) {
+        std::filesystem::create_directory(path);
+    }
+
+    auto filePath = path / "test.json";
+    std::fstream in;
+    in.open(filePath, std::fstream::in | std::fstream::out);
+    if (!in.is_open()) {
+        std::ofstream output(filePath);
+        output << "{\"hello\":1}";
+        output.close();
+        return;
+    }
+
+    nlohmann::json timersJson = nlohmann::json::parse(in);
+    std::cout << timersJson["hello"];
 }
 
 int main()
@@ -42,6 +66,7 @@ int main()
 
 	using namespace std::chrono_literals;
     Timers t{};
+    loadFiles(t);
     
     t.newTimer("timer1", 10s);
 	t.newTimer("timer2", 20s);
