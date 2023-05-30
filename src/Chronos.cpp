@@ -41,13 +41,15 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	using namespace std::chrono_literals;
+    Timers t{};
+    
+    t.newTimer("timer1", 10s);
+	t.newTimer("timer2", 20s);
+	t.newTimer("timer3", 1s);
+	t.startTimer("timer1");
+	t.startTimer("timer2");
 /*
-	Timers t{};
-	t.startThread();
-	t.newTimer("timer1", 500ms);
-	t.newTimer("timer2", 1000ms);
-	t.newTimer("timer3", 100ms);
-
+	
 	t.startTimer("timer1");
 	std::this_thread::sleep_for(200ms);
 	t.startTimer("timer2");
@@ -73,6 +75,8 @@ int main()
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
+        t.Update();
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -80,6 +84,15 @@ int main()
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
+
+        {
+            ImGui::Begin("Timers");
+            for (auto& timer : t.getTimers()) {
+                float progress = timer.second->getCurrent() / timer.second->getDuration();
+                ImGui::ProgressBar(progress, ImVec2(-1.f, 0.f), timer.first.c_str());
+            }
+            ImGui::End();
+        }
 
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
