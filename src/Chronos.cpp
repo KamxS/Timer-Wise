@@ -83,6 +83,10 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
+    int seconds = 0;
+    char name[50] = "";
+
+    bool show_timer_add_window = false;
     bool show_demo_window = true;
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -100,6 +104,14 @@ int main()
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
+        if (ImGui::BeginMainMenuBar()) {
+            if(ImGui::BeginMenu("Timer")) {
+                ImGui::MenuItem("Add", nullptr, &show_timer_add_window);
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+
         {
             ImGui::Begin("Timers");
             for (auto& timerPair : t.getTimers()) {
@@ -116,6 +128,18 @@ int main()
             ImGui::End();
         }
 
+        if (show_timer_add_window) {
+            ImGui::Begin("Add Timer");
+            ImGui::InputText("Name", name, sizeof(name));
+            ImGui::InputInt("Seconds", &seconds);
+            if (ImGui::Button("Add")) {
+                t.newTimer(name, std::chrono::seconds{ seconds });
+                show_timer_add_window = false;
+            }
+            ImGui::End();
+        }
+
+        
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
             static float f = 0.0f;
