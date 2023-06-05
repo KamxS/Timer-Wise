@@ -41,11 +41,11 @@ void loadFiles(Timers& timers) {
     std::cout << timersJson["hello"];
 }
 
-void displayTimer(std::pair<std::string, const Timer*> timerPair) {
+void displayTimer(std::pair<std::string, const Timer*> timerPair, int width = -1.f) {
     auto name = timerPair.first;
     auto timer = timerPair.second;
     float progress = timer->getCurrent() / timer->getDuration();
-    ImGui::ProgressBar(progress, ImVec2(-1.f, -0.f), name.c_str());
+    ImGui::ProgressBar(progress, ImVec2(width, 0.f), name.c_str());
 }
 
 int main()
@@ -77,7 +77,9 @@ int main()
     
     t.newTimer("timer1", 10s);
 	t.newTimer("timer2", 20s);
-	t.newTimer("timer3", 1s);
+	t.newTimer("timer3", 60s);
+	t.newTimer("timer4", 60s);
+	t.newTimer("timer5", 60s);
 	t.startTimer("timer1");
 	//t.startTimer("timer2");
 	
@@ -138,15 +140,32 @@ int main()
             }
 
             ImGui::Spacing();
-            ImGui::Text("Timers:");
 
-            for (auto& timerPair : t.getTimers()) {
-				if (t.getActiveTimer() != nullptr) {
-                    if (t.getActiveTimer()->name == timerPair.first) {
-                        continue;
+            if(ImGui::BeginTable("Timers", 3, ImGuiTableFlags_SizingFixedFit)) {
+                int row = 0;
+                for (auto& timerPair : t.getTimers()) {
+                    ImGui::TableNextRow();
+				    if (t.getActiveTimer() != nullptr) {
+                        if (t.getActiveTimer()->name == timerPair.first) {
+                            continue;
+                        }
                     }
+                    ImGui::TableNextColumn();
+                    displayTimer(timerPair, ImGui::GetWindowWidth()*0.8);
+
+                    ImGui::TableNextColumn();
+                    std::string buttonLabel = "Start Timer##";
+                    buttonLabel += row;
+                    if (ImGui::Button(buttonLabel.c_str())) {
+                        t.stopTimer();
+                        t.startTimer(timerPair.first);
+                    }
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Config (WIP)");
+                    row += 1;
                 }
-                displayTimer(timerPair);
+                ImGui::EndTable();
             }
             ImGui::End();
         }
