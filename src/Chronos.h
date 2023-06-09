@@ -2,8 +2,8 @@
 
 #include <string>
 #include <chrono>
-#include <map>
-#include <ranges>
+#include <vector>
+#include <optional>
 
 class Timer {
 	friend class Timers;
@@ -23,44 +23,58 @@ public:
 	float getCurrent() const {
 		return std::chrono::duration_cast<std::chrono::seconds>(current).count();
 	}
+
+	auto operator<=>(const Timer&) const = default;
 };
 
+
 class Timers {
-	Timer* activeTimer;
-	std::map<std::string, Timer*> timers;
+	size_t activeTimerInd;
+	std::vector<Timer> timers;
+	
+	size_t get(const std::string name) const {
+		auto it = std::find_if(timers.begin(), timers.end(), [&name](const Timer& timer) {return timer.name == name; });
+		if (it != timers.end()) return std::distance(timers.begin(), it);
+		return -1;
+	}
+
 public: 
 	Timers() = default;
 
 	void Update() {
-		if (activeTimer == nullptr) return;
-		activeTimer->current += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer->lastChecked));
-		activeTimer->lastChecked = std::chrono::steady_clock::now();
-		if (activeTimer->current >= activeTimer->duration) {
+		if (activeTimerInd == -1) return;
+		Timer& activeTimer = timers[activeTimerInd];
+		activeTimer.current += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer.lastChecked));
+		activeTimer.lastChecked = std::chrono::steady_clock::now();
+		if (activeTimer.current >= activeTimer.duration) {
 			stopTimer();
 		}
 	}
 
 	void newTimer(std::string name, std::chrono::seconds duration) {
-		if (timers.contains(name)) return;
-		auto t = new Timer(name, duration);
-		timers.insert(std::make_pair(name, t));
+		if (get(name) != -1 ) return;
+		timers.push_back(Timer(name, duration));
 	}
 
-	void startTimer(std::string name) {
-		if (activeTimer != nullptr) return;
-		activeTimer = timers[name];
-		activeTimer->lastChecked = std::chrono::steady_clock::now();
+	void startTimer(const std::string name) {
+		size_t ind = get(name);
+		if (ind == -1) return;
+		timers[ind].lastChecked = std::chrono::steady_clock::now();
+		activeTimerInd = ind;
 	}
 
 	void stopTimer() {
-		activeTimer = nullptr;
+		activeTimerInd = -1;
 	}
 
-	const Timer* getActiveTimer() const {
-		return activeTimer;
+	const std::optional<Timer> getActiveTimer() const {
+		if (activeTimerInd == -1) {
+			return std::nullopt;
+		}
+		return std::make_optional(timers[activeTimerInd]);
 	}
 
-	const std::map<std::string, Timer*> getTimers() const {
+	const std::vector<Timer> getTimers() const {
 		return timers;
 	}
 };

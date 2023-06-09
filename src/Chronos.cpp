@@ -41,12 +41,11 @@ void loadFiles(Timers& timers) {
     std::cout << timersJson["hello"];
 }
 
-void displayTimer(std::pair<std::string, const Timer*> timerPair, int width = -1.f) {
-    auto name = timerPair.first;
-    auto timer = timerPair.second;
-    float progress = timer->getCurrent() / timer->getDuration();
-    ImGui::ProgressBar(progress, ImVec2(width, 0.f), name.c_str());
+void displayTimer(const Timer timer, int width = -1.f) {
+    float progress = timer.getCurrent() / timer.getDuration();
+    ImGui::ProgressBar(progress, ImVec2(width, 0.f), timer.name.c_str());
 }
+
 
 int main()
 {
@@ -133,32 +132,32 @@ int main()
                 ImGui::EndMenuBar();
             }
             
-            if (t.getActiveTimer() != nullptr) {
-                auto cur = t.getActiveTimer();
+            if (t.getActiveTimer().has_value()) {
+                auto cur = t.getActiveTimer().value();
                 ImGui::Text("Currently running: ");
-                displayTimer(std::make_pair(cur->name, cur));
+                displayTimer(cur);
             }
 
             ImGui::Spacing();
 
             if(ImGui::BeginTable("Timers", 3, ImGuiTableFlags_SizingFixedFit)) {
                 int row = 0;
-                for (auto& timerPair : t.getTimers()) {
+                for (auto& timer : t.getTimers()) {
                     ImGui::TableNextRow();
-				    if (t.getActiveTimer() != nullptr) {
-                        if (t.getActiveTimer()->name == timerPair.first) {
+				    if (t.getActiveTimer().has_value()) {
+                        if (t.getActiveTimer().value().name == timer.name) {
                             continue;
                         }
                     }
                     ImGui::TableNextColumn();
-                    displayTimer(timerPair, ImGui::GetWindowWidth()*0.8);
+                    displayTimer(timer, ImGui::GetWindowWidth() * 0.8);
 
                     ImGui::TableNextColumn();
                     std::string buttonLabel = "Start Timer##";
                     buttonLabel += row;
                     if (ImGui::Button(buttonLabel.c_str())) {
                         t.stopTimer();
-                        t.startTimer(timerPair.first);
+                        t.startTimer(timer.name);
                     }
 
                     ImGui::TableNextColumn();
@@ -191,3 +190,4 @@ int main()
 
     return 0;
 }
+
