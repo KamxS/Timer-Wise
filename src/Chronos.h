@@ -4,15 +4,25 @@
 #include <chrono>
 #include <vector>
 #include <optional>
+#include <format>
+#include <nlohmann/json.hpp>
 
 class Timer {
 	friend class Timers;
 	std::chrono::seconds duration;
-	std::chrono::milliseconds current;
+	// TODO: Time left represents the time that PASSED not left
+	std::chrono::milliseconds timeLeft;
+	std::vector<std::string> days;
 
 	std::chrono::steady_clock::time_point lastChecked;
-	Timer(std::string name, std::chrono::seconds dur): name(name), current(std::chrono::milliseconds(0)),duration(dur) {
+	Timer(std::string name, std::chrono::seconds dur): name(name), timeLeft(std::chrono::milliseconds(0)),duration(dur),days() {
 		lastChecked = std::chrono::steady_clock::now();
+	}
+	Timer(const nlohmann::json& j) {
+		j.at("name").get_to(name);
+		duration = std::chrono::seconds(j.at("duration"));
+		timeLeft = std::chrono::seconds(j.at("timeLeft"));
+		j.at("days").get_to(days);
 	}
 public:
 	std::string name;
@@ -20,11 +30,21 @@ public:
 		return duration.count();
 	}
 
-	float getCurrent() const {
-		return std::chrono::duration_cast<std::chrono::seconds>(current).count();
+	float getLeftTime() const {
+		return std::chrono::duration_cast<std::chrono::seconds>(timeLeft).count();
 	}
 
 	auto operator<=>(const Timer&) const = default;
+
+	void toJson(nlohmann::json& j) const {
+		j = nlohmann::json{ 
+			{"name", name}, 
+			{"duration", duration.count()}, 
+			{"timeLeft", std::chrono::duration_cast<std::chrono::seconds>(timeLeft).count()},
+			{"type", "daily"},
+			{"days",days}
+		};
+	}
 };
 
 
@@ -44,9 +64,9 @@ public:
 	void Update() {
 		if (activeTimerInd == -1) return;
 		Timer& activeTimer = timers[activeTimerInd];
-		activeTimer.current += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer.lastChecked));
+		activeTimer.timeLeft += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer.lastChecked));
 		activeTimer.lastChecked = std::chrono::steady_clock::now();
-		if (activeTimer.current >= activeTimer.duration) {
+		if (activeTimer.timeLeft >= activeTimer.duration) {
 			stopTimer();
 		}
 	}
@@ -65,6 +85,14 @@ public:
 
 	void stopTimer() {
 		activeTimerInd = -1;
+	}
+
+	void loadTimers(const nlohmann::json& j) {
+		timers.push_back(Timer(j));
+	}
+
+	void saveTimers() {
+
 	}
 
 	const std::optional<Timer> getActiveTimer() const {

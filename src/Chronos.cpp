@@ -3,7 +3,6 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <nlohmann/json.hpp>
 #include <fstream>
 
 #include <filesystem>
@@ -38,11 +37,10 @@ void loadFiles(Timers& timers) {
     }
 
     nlohmann::json timersJson = nlohmann::json::parse(in);
-    std::cout << timersJson["hello"];
 }
 
 void displayTimer(const Timer timer, int width = -1.f) {
-    float progress = timer.getCurrent() / timer.getDuration();
+    float progress = timer.getLeftTime() / timer.getDuration();
     ImGui::ProgressBar(progress, ImVec2(width, 0.f), timer.name.c_str());
 }
 
@@ -80,7 +78,18 @@ int main()
 	t.newTimer("timer4", 60s);
 	t.newTimer("timer5", 60s);
 	t.startTimer("timer1");
-	//t.startTimer("timer2");
+
+    nlohmann::json j;
+    t.getActiveTimer().value().toJson(j);
+    std::cout << "Timer 1 json: " << j.dump() << std::endl;
+    j["name"] = "Timer 6";
+    j["timeLeft"] = 5;
+    j["duration"] = 20;
+    j["days"] = { "Monday", "Friday" };
+    t.loadTimers(j);
+    t.startTimer("Timer 6");
+    t.getActiveTimer().value().toJson(j);
+    std::cout << "Timer 6 json: " << j.dump() << std::endl;
 	
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
