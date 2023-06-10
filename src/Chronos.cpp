@@ -10,6 +10,10 @@
 #include "Chronos.h"
 #include <iostream>
 
+// TODO: Those should be configurable
+const std::filesystem::path DataDir = std::filesystem::current_path() / "../data";
+const std::filesystem::path TimersFilePath = std::filesystem::current_path() / DataDir / "test.json";
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
@@ -20,23 +24,22 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+
 void loadFiles(Timers& timers) {
-    auto path = std::filesystem::current_path() / "../data";
-    if (std::filesystem::is_directory(path) == 0) {
-        std::filesystem::create_directory(path);
+    if (std::filesystem::is_directory(DataDir) == 0) {
+        std::filesystem::create_directory(DataDir);
     }
 
-    auto filePath = path / "test.json";
     std::fstream in;
-    in.open(filePath, std::fstream::in | std::fstream::out);
+    in.open(TimersFilePath, std::fstream::in | std::fstream::out);
     if (!in.is_open()) {
-        std::ofstream output(filePath);
-        output << "{\"hello\":1}";
+        std::ofstream output(TimersFilePath);
+        output << "";
         output.close();
         return;
     }
 
-    nlohmann::json timersJson = nlohmann::json::parse(in);
+    timers.loadTimers(TimersFilePath);
 }
 
 void displayTimer(const Timer timer, int width = -1.f) {
@@ -68,29 +71,9 @@ int main()
 	glViewport(0, 0, 800, 600); 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-	using namespace std::chrono_literals;
     Timers t{};
     loadFiles(t);
-    
-    t.newTimer("timer1", 10s);
-	t.newTimer("timer2", 20s);
-	t.newTimer("timer3", 60s);
-	t.newTimer("timer4", 60s);
-	t.newTimer("timer5", 60s);
-	t.startTimer("timer1");
 
-    nlohmann::json j;
-    t.getActiveTimer().value().toJson(j);
-    std::cout << "Timer 1 json: " << j.dump() << std::endl;
-    j["name"] = "Timer 6";
-    j["timeLeft"] = 5;
-    j["duration"] = 20;
-    j["days"] = { "Monday", "Friday" };
-    t.loadTimers(j);
-    t.startTimer("Timer 6");
-    t.getActiveTimer().value().toJson(j);
-    std::cout << "Timer 6 json: " << j.dump() << std::endl;
-	
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -193,6 +176,8 @@ int main()
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    t.saveTimers(TimersFilePath);
 
     glfwDestroyWindow(window);
     glfwTerminate();

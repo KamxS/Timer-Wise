@@ -7,6 +7,9 @@
 #include <format>
 #include <nlohmann/json.hpp>
 
+// Remove !
+#include <iostream>
+
 class Timer {
 	friend class Timers;
 	std::chrono::seconds duration;
@@ -36,8 +39,9 @@ public:
 
 	auto operator<=>(const Timer&) const = default;
 
-	void toJson(nlohmann::json& j) const {
-		j = nlohmann::json{ 
+	// TODO: Figure out how to change the order of attributes
+	nlohmann::json toJson() const {
+		return nlohmann::json{ 
 			{"name", name}, 
 			{"duration", duration.count()}, 
 			{"timeLeft", std::chrono::duration_cast<std::chrono::seconds>(timeLeft).count()},
@@ -59,7 +63,7 @@ class Timers {
 	}
 
 public: 
-	Timers() = default;
+	Timers(): activeTimerInd(-1), timers() {};
 
 	void Update() {
 		if (activeTimerInd == -1) return;
@@ -87,12 +91,28 @@ public:
 		activeTimerInd = -1;
 	}
 
-	void loadTimers(const nlohmann::json& j) {
-		timers.push_back(Timer(j));
+	void loadTimers(const std::filesystem::path& path) {
+		std::fstream f(path);
+		if (!f.is_open()) return;
+		nlohmann::json json = nlohmann::json::parse(f);
+		for (auto& j : json) {
+			timers.push_back(Timer(j));
+		}
+		f.close();
 	}
 
-	void saveTimers() {
+	void saveTimers(const std::filesystem::path& path) const {
+		// TODO: Better saving
+		std::fstream f(path);
+		if (!f.is_open()) return;
 
+		std::vector<nlohmann::json> jsonVec{};
+		for (auto& t : getTimers()) {
+			jsonVec.push_back(t.toJson());
+		}
+		nlohmann::json json(jsonVec);
+		f << json.dump(4);
+		f.close();
 	}
 
 	const std::optional<Timer> getActiveTimer() const {
@@ -107,25 +127,3 @@ public:
 	}
 };
 
-
-/*
-	timer {
-		time: 60
-		timeLeft: 32
-		type: daily
-		days: ["Monday","Friday"]
-	},
-	timer2 {
-		time: 60
-		timeLeft: 32
-		type: daily
-		days: [] // Everyday
-	},
-	timer3 {
-		time: 260 
-		timeLeft: 120 
-		type: weekly 
-		days: [] 
-	}
-
-*/
