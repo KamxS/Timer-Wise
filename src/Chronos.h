@@ -5,6 +5,7 @@
 #include <vector>
 #include <optional>
 #include <format>
+#include <ctime>
 #include <nlohmann/json.hpp>
 
 // Remove !
@@ -55,6 +56,7 @@ public:
 class Timers {
 	size_t activeTimerInd;
 	std::vector<Timer> timers;
+	int dayOfYear;
 	
 	size_t get(const std::string name) const {
 		auto it = std::find_if(timers.begin(), timers.end(), [&name](const Timer& timer) {return timer.name == name; });
@@ -63,10 +65,13 @@ class Timers {
 	}
 
 public: 
-	Timers(): activeTimerInd(-1), timers() {};
+	Timers(): activeTimerInd(-1), timers(), dayOfYear(0) {};
 
 	void Update() {
-		if (activeTimerInd == -1) return;
+		if (activeTimerInd == -1) {
+			checkTime();
+			return;
+		};
 		Timer& activeTimer = timers[activeTimerInd];
 		activeTimer.timeLeft += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer.lastChecked));
 		activeTimer.lastChecked = std::chrono::steady_clock::now();
@@ -114,7 +119,13 @@ public:
 		f << json.dump(4);
 		f.close();
 	}
-
+	
+	void resetTimers() {
+		for (auto& t : timers) {
+			t.timeLeft = std::chrono::milliseconds(0);
+		}
+	}
+	
 	const std::optional<Timer> getActiveTimer() const {
 		if (activeTimerInd == -1) {
 			return std::nullopt;
@@ -124,6 +135,46 @@ public:
 
 	const std::vector<Timer> getTimers() const {
 		return timers;
+	}
+	
+	// TODO: Remove chronos ???
+		/*
+		auto t1 = time(0);
+		std::this_thread::sleep_for(std::chrono::seconds(5));
+		auto t2 = time(0);
+		std::cout << difftime(t2, t1) << std::endl;
+		*/
+
+	void checkTime() {
+		time_t curtime = time(0);
+		tm buf;
+		localtime_s(&buf, &curtime);
+		int curDay = buf.tm_yday;
+		if (curDay == dayOfYear) return;
+		resetTimers();
+		dayOfYear = curDay;
+
+		
+	}
+	
+	void loadDays(const std::filesystem::path& path) {
+		std::ifstream f(path);
+		if (!f.is_open()) return;
+
+		const size_t length = 3;
+		char buf[length] = "";
+		f.read(buf, length);
+		dayOfYear = atoi(buf);
+		f.close();
+		checkTime();
+	}
+
+	void saveDays(const std::filesystem::path& path) {
+		// TODO: Better saving
+		std::fstream f(path);
+		if (!f.is_open()) return;
+		f << dayOfYear;
+		f.close();
 	}
 };
 

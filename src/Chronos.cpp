@@ -12,7 +12,8 @@
 
 // TODO: Those should be configurable
 const std::filesystem::path DataDir = std::filesystem::current_path() / "../data";
-const std::filesystem::path TimersFilePath = std::filesystem::current_path() / DataDir / "test.json";
+const std::filesystem::path TimersFilePath = std::filesystem::current_path() / DataDir / "timers.json";
+const std::filesystem::path DaysFilePath = std::filesystem::current_path() / DataDir / "days.txt";
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -29,17 +30,32 @@ void loadFiles(Timers& timers) {
     if (std::filesystem::is_directory(DataDir) == 0) {
         std::filesystem::create_directory(DataDir);
     }
-
-    std::fstream in;
-    in.open(TimersFilePath, std::fstream::in | std::fstream::out);
-    if (!in.is_open()) {
+   
+    // TODO: Opening a file and closing it is fucking stupid fix it!!!
+    std::fstream timersFile;
+    timersFile.open(TimersFilePath, std::fstream::in | std::fstream::out);
+    if (!timersFile.is_open()) {
         std::ofstream output(TimersFilePath);
         output << "";
         output.close();
-        return;
+    }
+    else {
+        timersFile.close();
+        timers.loadTimers(TimersFilePath);
     }
 
-    timers.loadTimers(TimersFilePath);
+    // TODO: Opening a file and closing it is fucking stupid fix it (it is so stupid that i needed to mention it twice)
+    // TODO: Stop being so lazy
+    std::fstream daysFile;
+    daysFile.open(DaysFilePath, std::fstream::in | std::fstream::out);
+    if (!daysFile.is_open()) {
+        std::ofstream output(DaysFilePath);
+        output << "";
+        output.close();
+    }else {
+        daysFile.close();
+        timers.loadDays(DaysFilePath);
+    }
 }
 
 void displayTimer(const Timer timer, int width = -1.f) {
@@ -178,6 +194,7 @@ int main()
     ImGui::DestroyContext();
 
     t.saveTimers(TimersFilePath);
+    t.saveDays(DaysFilePath);
 
     glfwDestroyWindow(window);
     glfwTerminate();
