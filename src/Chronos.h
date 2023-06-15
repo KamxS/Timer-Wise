@@ -14,18 +14,17 @@
 class Timer {
 	friend class Timers;
 	std::chrono::seconds duration;
-	// TODO: Time left represents the time that PASSED not left
-	std::chrono::milliseconds timeLeft;
+	std::chrono::milliseconds timePassed;
 	std::vector<std::string> days;
 
 	std::chrono::steady_clock::time_point lastChecked;
-	Timer(std::string name, std::chrono::seconds dur): name(name), timeLeft(std::chrono::milliseconds(0)),duration(dur),days() {
+	Timer(std::string name, std::chrono::seconds dur): name(name), timePassed(std::chrono::milliseconds(0)),duration(dur),days() {
 		lastChecked = std::chrono::steady_clock::now();
 	}
 	Timer(const nlohmann::json& j) {
 		j.at("name").get_to(name);
 		duration = std::chrono::seconds(j.at("duration"));
-		timeLeft = std::chrono::seconds(j.at("timeLeft"));
+		timePassed = std::chrono::seconds(j.at("timePassed"));
 		j.at("days").get_to(days);
 	}
 public:
@@ -34,8 +33,8 @@ public:
 		return duration.count();
 	}
 
-	float getLeftTime() const {
-		return std::chrono::duration_cast<std::chrono::seconds>(timeLeft).count();
+	float getTimePassed() const {
+		return std::chrono::duration_cast<std::chrono::seconds>(timePassed).count();
 	}
 
 	auto operator<=>(const Timer&) const = default;
@@ -45,7 +44,7 @@ public:
 		return nlohmann::json{ 
 			{"name", name}, 
 			{"duration", duration.count()}, 
-			{"timeLeft", std::chrono::duration_cast<std::chrono::seconds>(timeLeft).count()},
+			{"timePassed", std::chrono::duration_cast<std::chrono::seconds>(timePassed).count()},
 			{"type", "daily"},
 			{"days",days}
 		};
@@ -56,7 +55,7 @@ public:
 class Timers {
 	size_t activeTimerInd;
 	std::vector<Timer> timers;
-	int dayOfYear;
+	int day;
 	
 	size_t get(const std::string name) const {
 		auto it = std::find_if(timers.begin(), timers.end(), [&name](const Timer& timer) {return timer.name == name; });
@@ -65,7 +64,7 @@ class Timers {
 	}
 
 public: 
-	Timers(): activeTimerInd(-1), timers(), dayOfYear(0) {};
+	Timers(): activeTimerInd(-1), timers(), day(0) {};
 
 	void Update() {
 		if (activeTimerInd == -1) {
@@ -73,9 +72,9 @@ public:
 			return;
 		};
 		Timer& activeTimer = timers[activeTimerInd];
-		activeTimer.timeLeft += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer.lastChecked));
+		activeTimer.timePassed += std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::steady_clock::now() - activeTimer.lastChecked));
 		activeTimer.lastChecked = std::chrono::steady_clock::now();
-		if (activeTimer.timeLeft >= activeTimer.duration) {
+		if (activeTimer.timePassed >= activeTimer.duration) {
 			stopTimer();
 		}
 	}
@@ -122,7 +121,7 @@ public:
 	
 	void resetTimers() {
 		for (auto& t : timers) {
-			t.timeLeft = std::chrono::milliseconds(0);
+			t.timePassed = std::chrono::milliseconds(0);
 		}
 	}
 	
@@ -138,21 +137,21 @@ public:
 	}
 	
 	// TODO: Remove chronos ???
-		/*
+	/*
 		auto t1 = time(0);
 		std::this_thread::sleep_for(std::chrono::seconds(5));
 		auto t2 = time(0);
 		std::cout << difftime(t2, t1) << std::endl;
-		*/
+	*/
 
 	void checkTime() {
 		time_t curtime = time(0);
 		tm buf;
 		localtime_s(&buf, &curtime);
 		int curDay = buf.tm_yday;
-		if (curDay == dayOfYear) return;
+		if (curDay == day) return;
 		resetTimers();
-		dayOfYear = curDay;
+		day = curDay;
 
 		
 	}
@@ -164,7 +163,7 @@ public:
 		const size_t length = 3;
 		char buf[length] = "";
 		f.read(buf, length);
-		dayOfYear = atoi(buf);
+		day = atoi(buf);
 		f.close();
 		checkTime();
 	}
@@ -173,7 +172,7 @@ public:
 		// TODO: Better saving
 		std::fstream f(path);
 		if (!f.is_open()) return;
-		f << dayOfYear;
+		f << day;
 		f.close();
 	}
 };

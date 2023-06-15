@@ -31,35 +31,26 @@ void loadFiles(Timers& timers) {
         std::filesystem::create_directory(DataDir);
     }
    
-    // TODO: Opening a file and closing it is fucking stupid fix it!!!
-    std::fstream timersFile;
-    timersFile.open(TimersFilePath, std::fstream::in | std::fstream::out);
-    if (!timersFile.is_open()) {
+    if (!std::filesystem::exists(TimersFilePath)) {
         std::ofstream output(TimersFilePath);
         output << "";
         output.close();
     }
     else {
-        timersFile.close();
         timers.loadTimers(TimersFilePath);
     }
 
-    // TODO: Opening a file and closing it is fucking stupid fix it (it is so stupid that i needed to mention it twice)
-    // TODO: Stop being so lazy
-    std::fstream daysFile;
-    daysFile.open(DaysFilePath, std::fstream::in | std::fstream::out);
-    if (!daysFile.is_open()) {
+    if(!std::filesystem::exists(DaysFilePath)) {
         std::ofstream output(DaysFilePath);
         output << "";
         output.close();
     }else {
-        daysFile.close();
         timers.loadDays(DaysFilePath);
     }
 }
 
 void displayTimer(const Timer timer, int width = -1.f) {
-    float progress = timer.getLeftTime() / timer.getDuration();
+    float progress = timer.getTimePassed() / timer.getDuration();
     ImGui::ProgressBar(progress, ImVec2(width, 0.f), timer.name.c_str());
 }
 
