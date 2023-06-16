@@ -92,6 +92,7 @@ int main()
 
     int seconds = 0;
     char name[50] = "";
+    int times[3] = {};
 
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -111,7 +112,10 @@ int main()
         {
             ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
             ImGui::SetNextWindowPos(ImVec2(0.f, 0.f));
-            ImGui::Begin("Timers", 0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoTitleBar);
+            
+            // Remove this flag after getting rid of show_demo_window option
+            int ifNoTitleBarFlag = (show_demo_window) ? 0 : ImGuiWindowFlags_NoTitleBar;
+            ImGui::Begin("Timers", 0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | ifNoTitleBarFlag);
 
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::MenuItem("Timer")) {
@@ -120,9 +124,14 @@ int main()
 
     			if(ImGui::BeginPopupModal("Add Timer")) {
                     ImGui::InputText("Name", name, sizeof(name));
-                    ImGui::InputInt("Seconds", &seconds);
+                    ImGui::InputInt3("Time", times);
                     if (ImGui::Button("Add")) {
-                        t.newTimer(name, std::chrono::seconds{ seconds });
+                        std::chrono::hours hourSeconds{ times[0] };
+                        std::chrono::minutes minuteSeconds{ times[1] };
+                        std::chrono::seconds seconds{ times[2] };
+                        std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
+                        
+                        t.newTimer(name, std::chrono::seconds{ total });
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndPopup();

@@ -157,7 +157,7 @@ public:
 	}
 	
 	void loadDays(const std::filesystem::path& path) {
-		std::ifstream f(path);
+		std::fstream f(path);
 		if (!f.is_open()) return;
 
 		const size_t length = 3;
