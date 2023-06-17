@@ -11,6 +11,16 @@
 // Remove !
 #include <iostream>
 
+struct Color {
+public:
+	float r;
+	float g;
+	float b;
+	Color(): r(0),g(0),b(180) {}
+	Color(float* arr): r(arr[0]),g(arr[1]),b(arr[2]) {}
+	Color(float r, float g, float b): r(r),g(g),b(b) {}
+};
+
 class Timer {
 	friend class Timers;
 	std::chrono::seconds duration;
@@ -18,17 +28,20 @@ class Timer {
 	std::vector<std::string> days;
 
 	std::chrono::steady_clock::time_point lastChecked;
-	Timer(std::string name, std::chrono::seconds dur): name(name), timePassed(std::chrono::milliseconds(0)),duration(dur),days() {
+	Timer(std::string name, std::chrono::seconds dur, Color c) : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur), days(), timerColor(c) {
 		lastChecked = std::chrono::steady_clock::now();
 	}
 	Timer(const nlohmann::json& j) {
 		j.at("name").get_to(name);
+		auto colorsJson = j.at("color");
+		timerColor = Color{colorsJson[0],colorsJson[1],colorsJson[2]};
 		duration = std::chrono::seconds(j.at("duration"));
 		timePassed = std::chrono::seconds(j.at("timePassed"));
 		j.at("days").get_to(days);
 	}
 public:
 	std::string name;
+	Color timerColor;
 	float getDuration() const {
 		return duration.count();
 	}
@@ -46,6 +59,7 @@ public:
 			{"duration", duration.count()}, 
 			{"timePassed", std::chrono::duration_cast<std::chrono::seconds>(timePassed).count()},
 			{"type", "daily"},
+			{"color", nlohmann::json::array({timerColor.r, timerColor.g, timerColor.b})},
 			{"days",days}
 		};
 	}
@@ -79,9 +93,9 @@ public:
 		}
 	}
 
-	void newTimer(std::string name, std::chrono::seconds duration) {
+	void newTimer(std::string name, std::chrono::seconds duration, Color c) {
 		if (get(name) != -1 ) return;
-		timers.push_back(Timer(name, duration));
+		timers.push_back(Timer(name, duration,c));
 	}
 
 	void startTimer(const std::string name) {

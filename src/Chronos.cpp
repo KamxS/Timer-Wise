@@ -50,8 +50,10 @@ void loadFiles(Timers& timers) {
 }
 
 void displayTimer(const Timer timer, int width = -1.f) {
+    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b, 1.0));
     float progress = timer.getTimePassed() / timer.getDuration();
     ImGui::ProgressBar(progress, ImVec2(width, 0.f), timer.name.c_str());
+    ImGui::PopStyleColor();
 }
 
 
@@ -93,8 +95,9 @@ int main()
     int seconds = 0;
     char name[50] = "";
     int times[3] = {};
+    float color[3] = {};
 
-    bool show_demo_window = false;
+    bool show_demo_window = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -125,13 +128,16 @@ int main()
     			if(ImGui::BeginPopupModal("Add Timer")) {
                     ImGui::InputText("Name", name, sizeof(name));
                     ImGui::InputInt3("Time", times);
+                    // TODO: Change color Picker to less advanced
+                    ImGui::ColorPicker3("Timer Color", color);
                     if (ImGui::Button("Add")) {
+                        // TODO: Values should be reseted after this action
                         std::chrono::hours hourSeconds{ times[0] };
                         std::chrono::minutes minuteSeconds{ times[1] };
                         std::chrono::seconds seconds{ times[2] };
                         std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
                         
-                        t.newTimer(name, std::chrono::seconds{ total });
+                        t.newTimer(name, std::chrono::seconds{ total }, Color(color[0],color[1],color[2]));
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndPopup();
@@ -158,7 +164,9 @@ int main()
                         }
                     }
                     ImGui::TableNextColumn();
+                    ImGui::PushID(row);
                     displayTimer(timer, ImGui::GetWindowWidth() * 0.8);
+                    ImGui::PopID();
 
                     ImGui::TableNextColumn();
                     std::string buttonLabel = "Start Timer##";
