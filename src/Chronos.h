@@ -11,14 +11,27 @@
 // Remove !
 #include <iostream>
 
+// TODO: Figure out Program name and add a namespace
+namespace chron{}
+
 struct Color {
 public:
 	float r;
 	float g;
 	float b;
-	Color(): r(0),g(0),b(180) {}
-	Color(float* arr): r(arr[0]),g(arr[1]),b(arr[2]) {}
-	Color(float r, float g, float b): r(r),g(g),b(b) {}
+	Color() : r(0), g(0), b(180) {}
+	Color(float* arr) : r(arr[0]), g(arr[1]), b(arr[2]) {}
+	Color(float r, float g, float b) : r(r), g(g), b(b) {}
+};
+
+std::unordered_map<std::string, int> DaysOfWeek{
+	{"Sunday",0},
+	{"Monday",1},
+	{"Tuesday",2},
+	{"Wednesday",3},
+	{"Thursday",4},
+	{"Friday",5},
+	{"Saturday",6},
 };
 
 class Timer {
@@ -39,18 +52,6 @@ class Timer {
 		timePassed = std::chrono::seconds(j.at("timePassed"));
 		j.at("days").get_to(days);
 	}
-public:
-	std::string name;
-	Color timerColor;
-	float getDuration() const {
-		return duration.count();
-	}
-
-	float getTimePassed() const {
-		return std::chrono::duration_cast<std::chrono::seconds>(timePassed).count();
-	}
-
-	auto operator<=>(const Timer&) const = default;
 
 	// TODO: Figure out how to change the order of attributes
 	nlohmann::json toJson() const {
@@ -63,6 +64,19 @@ public:
 			{"days",days}
 		};
 	}
+public:
+	std::string name;
+	Color timerColor;
+	float getDuration() const {
+		return duration.count();
+	}
+
+	float getTimePassed() const {
+		return std::chrono::duration_cast<std::chrono::seconds>(timePassed).count();
+	}
+
+	// TODO: Figure out comparison
+	//bool operator==(std::unordered_map<std::string, T> l) const {}
 };
 
 
@@ -101,6 +115,16 @@ public:
 	void startTimer(const std::string name) {
 		size_t ind = get(name);
 		if (ind == -1) return;
+
+		if (timers[ind].days.size() != 0) {
+			auto curDay = getDatetime().tm_wday;
+			bool isToday = false;
+			for (auto& tDay : timers[ind].days) {
+				if (DaysOfWeek[tDay] == curDay) isToday = true;
+			}
+			if (!isToday) return;
+		}
+		
 		timers[ind].lastChecked = std::chrono::steady_clock::now();
 		activeTimerInd = ind;
 	}
@@ -138,7 +162,10 @@ public:
 			t.timePassed = std::chrono::milliseconds(0);
 		}
 	}
-	
+
+	/* TODO: Add a way to filter like that:
+		getFiltered({"days":["Monday"]});
+	*/ 
 	const std::optional<Timer> getActiveTimer() const {
 		if (activeTimerInd == -1) {
 			return std::nullopt;
@@ -146,6 +173,25 @@ public:
 		return std::make_optional(timers[activeTimerInd]);
 	}
 
+	const std::vector<Timer> getTodaysTimers() const {
+		auto curDay = getDatetime().tm_wday;
+		std::vector<Timer> filteredTimers{};
+		for (auto& t : timers) {
+			if (t.days.size() == 0) {
+				filteredTimers.push_back(t);
+				continue;
+			}
+			bool isToday = false;
+			for (auto& tDay : t.days) {
+				if (DaysOfWeek[tDay] == curDay) isToday = true;
+			}
+			if (isToday) filteredTimers.push_back(t);
+		}
+		return filteredTimers;
+	}
+	
+	const std::vector<Timer> getUnavailableTimers() const {}
+	
 	const std::vector<Timer> getTimers() const {
 		return timers;
 	}
@@ -159,15 +205,11 @@ public:
 	*/
 
 	void checkTime() {
-		time_t curtime = time(0);
-		tm buf;
-		localtime_s(&buf, &curtime);
-		int curDay = buf.tm_yday;
+		tm datetime = getDatetime();
+		int curDay = datetime.tm_yday;
 		if (curDay == day) return;
 		resetTimers();
 		day = curDay;
-
-		
 	}
 	
 	void loadDays(const std::filesystem::path& path) {
@@ -188,6 +230,14 @@ public:
 		if (!f.is_open()) return;
 		f << day;
 		f.close();
+	}
+
+private:
+	tm getDatetime() const {
+		time_t curtime = time(0);
+		tm buf;
+		localtime_s(&buf, &curtime);
+		return buf;
 	}
 };
 

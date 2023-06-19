@@ -72,7 +72,7 @@ int main()
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
+    glfwSwapInterval(1); 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		std::cout << "Failed to initialize GLAD" << std::endl;
 		return -1;
@@ -97,7 +97,7 @@ int main()
     int times[3] = {};
     float color[3] = {};
 
-    bool show_demo_window = true;
+    bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -125,6 +125,7 @@ int main()
                     ImGui::OpenPopup("Add Timer");
                 }
 
+                // TODO: Better UI for Timer Adding
     			if(ImGui::BeginPopupModal("Add Timer")) {
                     ImGui::InputText("Name", name, sizeof(name));
                     ImGui::InputInt3("Time", times);
@@ -152,11 +153,12 @@ int main()
                 displayTimer(cur);
             }
 
-            ImGui::Spacing();
+            //TODO: Fix Spacing
 
-            if(ImGui::BeginTable("Timers", 3, ImGuiTableFlags_SizingFixedFit)) {
+            ImGui::SeparatorText("Today's Timers");
+            if(ImGui::BeginTable("TodaysTimers", 3, ImGuiTableFlags_SizingFixedFit)) {
                 int row = 0;
-                for (auto& timer : t.getTimers()) {
+                for (auto& timer : t.getTodaysTimers()) {
                     ImGui::TableNextRow();
 				    if (t.getActiveTimer().has_value()) {
                         if (t.getActiveTimer().value().name == timer.name) {
@@ -164,9 +166,7 @@ int main()
                         }
                     }
                     ImGui::TableNextColumn();
-                    ImGui::PushID(row);
                     displayTimer(timer, ImGui::GetWindowWidth() * 0.8);
-                    ImGui::PopID();
 
                     ImGui::TableNextColumn();
                     std::string buttonLabel = "Start Timer##";
@@ -182,6 +182,8 @@ int main()
                 }
                 ImGui::EndTable();
             }
+
+            // TODO: Add a way to display unavailable timers
             ImGui::End();
         }
 
