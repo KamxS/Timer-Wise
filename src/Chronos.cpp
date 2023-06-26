@@ -56,6 +56,24 @@ void displayTimer(const Timer timer, int width = -1.f) {
     ImGui::PopStyleColor();
 }
 
+struct NewTimerOptions {
+    int seconds;
+    char name[50];
+    int times[3];
+    float color[3];
+    std::vector<std::pair<std::string, bool>> weekDaysSel;
+    NewTimerOptions() : seconds(0), name(), times(), color() {
+         weekDaysSel = {
+            {"Monday",true},
+            {"Tuesday",true},
+            {"Wednesday",true},
+            {"Thursday",true},
+            {"Friday",true},
+            {"Saturday",true},
+            {"Sunday",true}
+        };
+    }
+};
 
 int main()
 {
@@ -92,12 +110,25 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
+    NewTimerOptions options{};
+
+    /*
     int seconds = 0;
     char name[50] = "";
     int times[3] = {};
     float color[3] = {};
+    std::vector<std::pair<std::string, bool>> weekDaysSel = {
+        {"Monday",true},
+        {"Tuesday",true},
+        {"Wednesday",true},
+        {"Thursday",true},
+        {"Friday",true},
+        {"Saturday",true},
+        {"Sunday",true}
+    };
+    */
 
-    bool show_demo_window = false;
+    bool show_demo_window = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -127,18 +158,30 @@ int main()
 
                 // TODO: Better UI for Timer Adding
     			if(ImGui::BeginPopupModal("Add Timer")) {
-                    ImGui::InputText("Name", name, sizeof(name));
-                    ImGui::InputInt3("Time", times);
-                    // TODO: Change color Picker to less advanced
-                    ImGui::ColorPicker3("Timer Color", color);
+                    ImGui::InputText("Name", options.name, sizeof(options.name));
+                    ImGui::InputInt3("Time", options.times);
+                    ImGui::ColorEdit3("Timer Color", options.color);
+                    
+                    for (auto& day : options.weekDaysSel) {
+                        if(ImGui::Selectable(day.first.c_str(), day.second, ImGuiSelectableFlags_DontClosePopups)) {
+                            day.second = !day.second;
+                        }
+                    }
                     if (ImGui::Button("Add")) {
                         // TODO: Values should be reseted after this action
-                        std::chrono::hours hourSeconds{ times[0] };
-                        std::chrono::minutes minuteSeconds{ times[1] };
-                        std::chrono::seconds seconds{ times[2] };
+                        std::chrono::hours hourSeconds{ options.times[0] };
+                        std::chrono::minutes minuteSeconds{ options.times[1] };
+                        std::chrono::seconds seconds{ options.times[2] };
                         std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
+
+                        std::vector<std::string> days;
+                        for (auto& day : options.weekDaysSel) {
+                            if (!day.second) continue;
+                            days.push_back(day.first);
+                        }
                         
-                        t.newTimer(name, std::chrono::seconds{ total }, Color(color[0],color[1],color[2]));
+                        t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days);
+                        options = NewTimerOptions{};
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndPopup();

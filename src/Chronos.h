@@ -24,15 +24,26 @@ public:
 	Color(float r, float g, float b) : r(r), g(g), b(b) {}
 };
 
+const std::string DaysOfWeek[7] = {
+	"Sunday",
+	"Monday",
+	"Tuesday",
+	"Wednesday",
+	"Thursday",
+	"Friday",
+	"Saturday"
+};
+/*
 std::unordered_map<std::string, int> DaysOfWeek{
-	{"Sunday",0},
 	{"Monday",1},
 	{"Tuesday",2},
 	{"Wednesday",3},
 	{"Thursday",4},
 	{"Friday",5},
 	{"Saturday",6},
+	{"Sunday",0},
 };
+*/
 
 class Timer {
 	friend class Timers;
@@ -41,7 +52,7 @@ class Timer {
 	std::vector<std::string> days;
 
 	std::chrono::steady_clock::time_point lastChecked;
-	Timer(std::string name, std::chrono::seconds dur, Color c) : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur), days(), timerColor(c) {
+	Timer(std::string name, std::chrono::seconds dur, Color c, std::vector<std::string> days) : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur), days(days), timerColor(c) {
 		lastChecked = std::chrono::steady_clock::now();
 	}
 	Timer(const nlohmann::json& j) {
@@ -77,6 +88,7 @@ public:
 
 	// TODO: Figure out comparison
 	//bool operator==(std::unordered_map<std::string, T> l) const {}
+	//bool operator==(std::unitialized_list<std::string, T> l) const {}
 };
 
 
@@ -107,9 +119,9 @@ public:
 		}
 	}
 
-	void newTimer(std::string name, std::chrono::seconds duration, Color c) {
+	void newTimer(std::string name, std::chrono::seconds duration, Color c, std::vector<std::string> days) {
 		if (get(name) != -1 ) return;
-		timers.push_back(Timer(name, duration,c));
+		timers.push_back(Timer(name, duration,c, days));
 	}
 
 	void startTimer(const std::string name) {
@@ -120,7 +132,7 @@ public:
 			auto curDay = getDatetime().tm_wday;
 			bool isToday = false;
 			for (auto& tDay : timers[ind].days) {
-				if (DaysOfWeek[tDay] == curDay) isToday = true;
+				if (tDay == DaysOfWeek[curDay]) isToday = true;
 			}
 			if (!isToday) return;
 		}
@@ -183,7 +195,7 @@ public:
 			}
 			bool isToday = false;
 			for (auto& tDay : t.days) {
-				if (DaysOfWeek[tDay] == curDay) isToday = true;
+				if (tDay == DaysOfWeek[curDay]) isToday = true;
 			}
 			if (isToday) filteredTimers.push_back(t);
 		}
