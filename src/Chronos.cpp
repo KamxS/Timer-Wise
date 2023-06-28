@@ -62,6 +62,7 @@ struct NewTimerOptions {
     int times[3];
     float color[3];
     std::vector<std::pair<std::string, bool>> weekDaysSel;
+
     NewTimerOptions() : seconds(0), name(), times(), color() {
          weekDaysSel = {
             {"Monday",true},
@@ -112,22 +113,6 @@ int main()
 
     NewTimerOptions options{};
 
-    /*
-    int seconds = 0;
-    char name[50] = "";
-    int times[3] = {};
-    float color[3] = {};
-    std::vector<std::pair<std::string, bool>> weekDaysSel = {
-        {"Monday",true},
-        {"Tuesday",true},
-        {"Wednesday",true},
-        {"Thursday",true},
-        {"Friday",true},
-        {"Saturday",true},
-        {"Sunday",true}
-    };
-    */
-
     bool show_demo_window = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -168,7 +153,6 @@ int main()
                         }
                     }
                     if (ImGui::Button("Add")) {
-                        // TODO: Values should be reseted after this action
                         std::chrono::hours hourSeconds{ options.times[0] };
                         std::chrono::minutes minuteSeconds{ options.times[1] };
                         std::chrono::seconds seconds{ options.times[2] };
@@ -199,15 +183,10 @@ int main()
             //TODO: Fix Spacing
 
             ImGui::SeparatorText("Today's Timers");
-            if(ImGui::BeginTable("TodaysTimers", 3, ImGuiTableFlags_SizingFixedFit)) {
+            if(ImGui::BeginTable("TodayTimers", 3, ImGuiTableFlags_SizingFixedFit)) {
                 int row = 0;
-                for (auto& timer : t.getTodaysTimers()) {
+				for (auto& timer : t.getFiltered(false, {"Today"})) {
                     ImGui::TableNextRow();
-				    if (t.getActiveTimer().has_value()) {
-                        if (t.getActiveTimer().value().name == timer.name) {
-                            continue;
-                        }
-                    }
                     ImGui::TableNextColumn();
                     displayTimer(timer, ImGui::GetWindowWidth() * 0.8);
 

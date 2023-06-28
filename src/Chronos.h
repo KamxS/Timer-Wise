@@ -33,17 +33,6 @@ const std::string DaysOfWeek[7] = {
 	"Friday",
 	"Saturday"
 };
-/*
-std::unordered_map<std::string, int> DaysOfWeek{
-	{"Monday",1},
-	{"Tuesday",2},
-	{"Wednesday",3},
-	{"Thursday",4},
-	{"Friday",5},
-	{"Saturday",6},
-	{"Sunday",0},
-};
-*/
 
 class Timer {
 	friend class Timers;
@@ -175,31 +164,38 @@ public:
 		}
 	}
 
-	/* TODO: Add a way to filter like that:
-		getFiltered({"days":["Monday"]});
-	*/ 
+	// TODO: getFiltered(false, {"(exclude or include)", {"Monday"})
+	const std::vector<Timer> getFiltered(bool active, std::vector<std::string> days={} ) const {
+		if (active && days.size() == 0) return timers;
+
+		std::vector<Timer> filteredTimers{};
+		std::copy_if(timers.begin(), timers.end(), std::back_inserter(filteredTimers), [&](Timer t) {
+			if (!active) {
+				if (getActiveTimer().has_value() && getActiveTimer().value().name == t.name) return false;
+			}
+			if (days.size() != 0) {
+				if (t.days.size() == 0) return true;
+				for (auto tDay : t.days) {
+					for (auto fDay : days) {
+						if (fDay == "Today") {
+							auto curDay = getDatetime().tm_wday;
+							if (tDay == DaysOfWeek[curDay]) return true;
+						}
+						if (tDay == fDay) return true;
+					}
+				}
+				return false;
+			}
+			return true;
+		});
+		return filteredTimers;
+	}
+
 	const std::optional<Timer> getActiveTimer() const {
 		if (activeTimerInd == -1) {
 			return std::nullopt;
 		}
 		return std::make_optional(timers[activeTimerInd]);
-	}
-
-	const std::vector<Timer> getTodaysTimers() const {
-		auto curDay = getDatetime().tm_wday;
-		std::vector<Timer> filteredTimers{};
-		for (auto& t : timers) {
-			if (t.days.size() == 0) {
-				filteredTimers.push_back(t);
-				continue;
-			}
-			bool isToday = false;
-			for (auto& tDay : t.days) {
-				if (tDay == DaysOfWeek[curDay]) isToday = true;
-			}
-			if (isToday) filteredTimers.push_back(t);
-		}
-		return filteredTimers;
 	}
 	
 	const std::vector<Timer> getUnavailableTimers() const {}
