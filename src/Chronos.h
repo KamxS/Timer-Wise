@@ -108,9 +108,10 @@ public:
 		}
 	}
 
-	void newTimer(std::string name, std::chrono::seconds duration, Color c, std::vector<std::string> days) {
-		if (get(name) != -1 ) return;
+	int newTimer(std::string name, std::chrono::seconds duration, Color c, std::vector<std::string> days) {
+		if (get(name) != -1 ) return 1;
 		timers.push_back(Timer(name, duration,c, days));
+		return 0;
 	}
 
 	void startTimer(const std::string name) {

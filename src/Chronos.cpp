@@ -10,6 +10,7 @@
 #include "Chronos.h"
 #include <iostream>
 
+
 // TODO: Those should be configurable
 const std::filesystem::path DataDir = std::filesystem::current_path() / "../data";
 const std::filesystem::path TimersFilePath = std::filesystem::current_path() / DataDir / "timers.json";
@@ -146,26 +147,38 @@ int main()
                     ImGui::InputText("Name", options.name, sizeof(options.name));
                     ImGui::InputInt3("Time", options.times);
                     ImGui::ColorEdit3("Timer Color", options.color);
-                    
-                    for (auto& day : options.weekDaysSel) {
-                        if(ImGui::Selectable(day.first.c_str(), day.second, ImGuiSelectableFlags_DontClosePopups)) {
-                            day.second = !day.second;
+                   
+					if (ImGui::BeginTable("Days", 7, ImGuiTableFlags_Borders, ImVec2(ImGui::GetWindowWidth()*0.4, 1.5))) {
+                        for (auto& day : options.weekDaysSel) {
+                            ImGui::TableNextColumn();
+							if(ImGui::Selectable(day.first.substr(0,3).c_str(), day.second, ImGuiSelectableFlags_DontClosePopups)) day.second = !day.second;
                         }
                     }
+                    ImGui::EndTable();
+
                     if (ImGui::Button("Add")) {
+                        if (sizeof(options.name) == 0) {
+                            // TODO: Proper error
+                            ImGui::CloseCurrentPopup();
+                        }
                         std::chrono::hours hourSeconds{ options.times[0] };
                         std::chrono::minutes minuteSeconds{ options.times[1] };
                         std::chrono::seconds seconds{ options.times[2] };
                         std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
 
                         std::vector<std::string> days;
+                        
                         for (auto& day : options.weekDaysSel) {
                             if (!day.second) continue;
                             days.push_back(day.first);
                         }
-                        
+                       
+                        // TODO: Error when returns 1
                         t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days);
                         options = NewTimerOptions{};
+                        ImGui::CloseCurrentPopup();
+                    }
+                    if (ImGui::Button("Cancel")) {
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndPopup();
@@ -191,7 +204,7 @@ int main()
                     displayTimer(timer, ImGui::GetWindowWidth() * 0.8);
 
                     ImGui::TableNextColumn();
-                    std::string buttonLabel = "Start Timer##";
+                    std::string buttonLabel = "Start##";
                     buttonLabel += row;
                     if (ImGui::Button(buttonLabel.c_str())) {
                         t.stopTimer();
@@ -204,8 +217,7 @@ int main()
                 }
                 ImGui::EndTable();
             }
-
-            // TODO: Add a way to display unavailable timers
+                
             ImGui::End();
         }
 
