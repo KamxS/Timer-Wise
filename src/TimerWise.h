@@ -12,7 +12,7 @@
 #include <iostream>
 
 // TODO: Figure out Program name and add a namespace
-namespace chron{}
+namespace TimerWise{}
 
 struct Color {
 public:
