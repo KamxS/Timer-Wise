@@ -1,14 +1,13 @@
-﻿#include <imgui.h>
+﻿#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui.h>
+#include <imgui_internal.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <fstream>
-
 #include <filesystem>
-
 #include "TimerWise.h"
-#include <iostream>
 
 
 // TODO: Those should be configurable
@@ -50,11 +49,52 @@ void loadFiles(Timers& timers) {
     }
 }
 
-void displayTimer(const Timer timer, int width = -1.f) {
-    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b, 1.0));
+// Circle code taken from: https://github.com/ocornut/imgui/issues/2020
+auto ProgressCircle(float progress, float radius, float thickness, const ImVec4& color) {
+    ImVec2 offset{ 20,20 };
+    auto window = ImGui::GetCurrentWindow();
+    if (window->SkipItems) return;
+
+    auto&& pos = ImGui::GetCursorPos();
+    pos += offset;
+    ImVec2 size{ radius * 2, radius * 2 };
+    
+    const float a_min = 0;
+    const float a_max = IM_PI * 2.0f * progress;
+    const auto&& centre = ImVec2(pos.x + radius, pos.y + radius);
+
+    // Timer
+    /*
+    ImGui::SetCursorPosX(pos.x + radius);
+    ImGui::SetCursorPosY(pos.y + radius);
+    ImGui::Text("00:30");
+    */
+
+    window->DrawList->PathClear();
+
+    // Circle's Shadow
+     for (auto i = 0; i <= 100; i++) {
+        const float a = a_min + ((float)i / 100.f) * (IM_PI * 2.f - a_min);
+        window->DrawList->PathLineTo({ centre.x + ImCos(a - (IM_PI/2)) * radius, centre.y + ImSin(a - (IM_PI/2)) * radius });
+    }
+    window->DrawList->PathStroke(ImGui::GetColorU32(ImVec4(0.2,0.2,0.2,0.5)), false, thickness);
+
+    // Hitbox
+    const ImRect bb{ pos , pos + size + offset * 2};
+    ImGui::ItemSize(bb);
+    if (!ImGui::ItemAdd(bb, 0)) return;
+   
+    // Circle
+    for (auto i = 0; i <= 100; i++) {
+        const float a = a_min + ((float)i / 100.f) * (a_max - a_min);
+        window->DrawList->PathLineTo({ centre.x + ImCos(a - (IM_PI/2)) * radius, centre.y + ImSin(a - (IM_PI/2)) * radius });
+    }
+    window->DrawList->PathStroke(ImGui::GetColorU32(color), false, thickness);
+}
+
+void displayTimerCircle(const Timer timer, float radius, float thickness) {
     float progress = timer.getTimePassed() / timer.getDuration();
-    ImGui::ProgressBar(progress, ImVec2(width, 0.f), timer.name.c_str());
-    ImGui::PopStyleColor();
+    ProgressCircle(progress, radius, thickness, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b,1.f));
 }
 
 struct NewTimerOptions {
@@ -85,7 +125,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(800, 600, "TimerWise", NULL, NULL);
 	if (window == NULL) {
 		std::cout << "Failed to create Glfw window" << std::endl;
 		glfwTerminate();
@@ -114,7 +154,7 @@ int main()
 
     NewTimerOptions options{};
 
-    bool show_demo_window = true;
+    bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -126,8 +166,7 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
+        if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
         {
             ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
@@ -135,7 +174,7 @@ int main()
             
             // Remove this flag after getting rid of show_demo_window option
             int ifNoTitleBarFlag = (show_demo_window) ? 0 : ImGuiWindowFlags_NoTitleBar;
-            ImGui::Begin("Timers", 0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | ifNoTitleBarFlag);
+            ImGui::Begin("TimeWise", 0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | ifNoTitleBarFlag);
 
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::MenuItem("Timer")) {
@@ -178,46 +217,59 @@ int main()
                         options = NewTimerOptions{};
                         ImGui::CloseCurrentPopup();
                     }
-                    if (ImGui::Button("Cancel")) {
-                        ImGui::CloseCurrentPopup();
-                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+
                     ImGui::EndPopup();
                 }
 
                 ImGui::EndMenuBar();
             }
-            
+
+            // TODO: Repair centering
             if (t.getActiveTimer().has_value()) {
                 auto cur = t.getActiveTimer().value();
-                ImGui::Text("Currently running: ");
-                displayTimer(cur);
+                const float radius = 30.f;
+
+                float avail = ImGui::GetContentRegionAvail().x;
+                float off = (avail - radius) * 0.5f;
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+                displayTimerCircle(cur, radius, 15.f);
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+                ImGui::Text(cur.name.c_str());
             }
-
-            //TODO: Fix Spacing
-
+            
             ImGui::SeparatorText("Today's Timers");
-            if(ImGui::BeginTable("TodayTimers", 3, ImGuiTableFlags_SizingFixedFit)) {
-                int row = 0;
+            if(ImGui::BeginTable("TodayTimers", 6)) {
+                int ind = 0;
 				for (auto& timer : t.getFiltered(false, {"Today"})) {
-                    ImGui::TableNextRow();
                     ImGui::TableNextColumn();
-                    displayTimer(timer, ImGui::GetWindowWidth() * 0.8);
+                    displayTimerCircle(timer, 20.f, 10.f);
 
-                    ImGui::TableNextColumn();
-                    std::string buttonLabel = "Start##";
-                    buttonLabel += row;
-                    if (ImGui::Button(buttonLabel.c_str())) {
+                    ImGui::Text(timer.name.c_str());
+
+                    std::string startBtnLabel = ">##";
+                    startBtnLabel += ind;
+                    if (ImGui::Button(startBtnLabel.c_str())) {
                         t.stopTimer();
                         t.startTimer(timer.name);
                     }
+                    ImGui::SameLine();
 
-                    ImGui::TableNextColumn();
-                    ImGui::Text("Config (WIP)");
-                    row += 1;
+					std::string configBtnLabel = "o##";
+                    configBtnLabel += ind;
+                    if (ImGui::Button(configBtnLabel.c_str())) {}
+                    ImGui::SameLine();
+
+					std::string deleteBtnLabel = "X##";
+                    deleteBtnLabel += ind;
+                    if (ImGui::Button(deleteBtnLabel.c_str())) {}
+
+                    ind += 1;
                 }
                 ImGui::EndTable();
             }
-                
             ImGui::End();
         }
 
