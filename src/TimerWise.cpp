@@ -97,23 +97,18 @@ void displayTimerCircle(const Timer timer, float radius, float thickness, ImVec2
     ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(radius,0));
     ProgressCircle(progress, radius, thickness, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b,1.f));
 
-    auto text = timer.name.c_str();
-    auto textWidth = ImGui::CalcTextSize(text).x;
-    ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(textWidth*0.5f,0));
-    ImGui::Text(text);
-}
-
-void TextCentered(std::string text) {
-    auto windowWidth = ImGui::GetWindowSize().x;
-    auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
-
-    ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+    std::string text = timer.name;
+    if (text.length() > 17) {
+        text = text.substr(0, 17) + "...";
+    }
+    auto textOff = ImGui::CalcTextSize(text.c_str())*0.5f;
+    ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - textOff);
     ImGui::Text(text.c_str());
 }
 
 struct NewTimerOptions {
     int seconds;
-    char name[50];
+    char name[20];
     int times[3];
     float color[3];
     std::vector<std::pair<std::string, bool>> weekDaysSel;
@@ -241,14 +236,13 @@ int main()
                 ImGui::EndMenuBar();
             }
 
-            // TODO: Repair centering
             if (t.getActiveTimer().has_value()) {
                 auto cur = t.getActiveTimer().value();
-                const float radius = 30.f;
+                const float radius = 40.f;
 
                 float avail = ImGui::GetContentRegionAvail().x;
                 float off = (avail - radius) * 0.5f;
-                displayTimerCircle(cur, radius, 15.f, ImVec2(ImGui::GetCursorPosX() + off,0));
+                displayTimerCircle(cur, radius, 20.f, ImVec2(ImGui::GetCursorPosX() + off,0));
             }
             
             ImGui::SeparatorText("Today's Timers");
@@ -256,7 +250,7 @@ int main()
                 int ind = 0;
 				for (auto& timer : t.getFiltered(false, {"Today"})) {
                     ImGui::TableNextColumn();
-                    displayTimerCircle(timer, 20.f, 10.f, ImVec2{40.f,0.f});
+                    displayTimerCircle(timer, 30.f, 15.f, ImVec2{50.f,0.f});
 
                     std::string startBtnLabel = ">##";
                     startBtnLabel += ind;
