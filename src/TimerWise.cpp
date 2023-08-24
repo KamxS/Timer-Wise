@@ -9,7 +9,7 @@
 #include <filesystem>
 #include "TimerWise.h"
 
-
+// TODO: Use as Nvim extension?
 // TODO: Those should be configurable
 const std::filesystem::path DataDir = std::filesystem::current_path() / "../data";
 const std::filesystem::path TimersFilePath = std::filesystem::current_path() / DataDir / "timers.json";
@@ -51,7 +51,7 @@ void loadFiles(Timers& timers) {
 
 // Circle code taken from: https://github.com/ocornut/imgui/issues/2020
 auto ProgressCircle(float progress, float radius, float thickness, const ImVec4& color) {
-    ImVec2 offset{ 20,20 };
+    ImVec2 offset{ 0,20 };
     auto window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return;
 
@@ -61,21 +61,21 @@ auto ProgressCircle(float progress, float radius, float thickness, const ImVec4&
     
     const float a_min = 0;
     const float a_max = IM_PI * 2.0f * progress;
-    const auto&& centre = ImVec2(pos.x + radius, pos.y + radius);
+    const auto&& center = ImVec2(pos.x + radius, pos.y + radius);
 
     // Timer
     /*
     ImGui::SetCursorPosX(pos.x + radius);
     ImGui::SetCursorPosY(pos.y + radius);
     ImGui::Text("00:30");
-    */
+*/
 
     window->DrawList->PathClear();
 
     // Circle's Shadow
-     for (auto i = 0; i <= 100; i++) {
+    for (auto i = 0; i <= 100; i++) {
         const float a = a_min + ((float)i / 100.f) * (IM_PI * 2.f - a_min);
-        window->DrawList->PathLineTo({ centre.x + ImCos(a - (IM_PI/2)) * radius, centre.y + ImSin(a - (IM_PI/2)) * radius });
+        window->DrawList->PathLineTo({ center.x + ImCos(a - (IM_PI/2)) * radius, center.y + ImSin(a - (IM_PI/2)) * radius });
     }
     window->DrawList->PathStroke(ImGui::GetColorU32(ImVec4(0.2,0.2,0.2,0.5)), false, thickness);
 
@@ -87,14 +87,28 @@ auto ProgressCircle(float progress, float radius, float thickness, const ImVec4&
     // Circle
     for (auto i = 0; i <= 100; i++) {
         const float a = a_min + ((float)i / 100.f) * (a_max - a_min);
-        window->DrawList->PathLineTo({ centre.x + ImCos(a - (IM_PI/2)) * radius, centre.y + ImSin(a - (IM_PI/2)) * radius });
+        window->DrawList->PathLineTo({ center.x + ImCos(a - (IM_PI/2)) * radius, center.y + ImSin(a - (IM_PI/2)) * radius });
     }
     window->DrawList->PathStroke(ImGui::GetColorU32(color), false, thickness);
 }
 
-void displayTimerCircle(const Timer timer, float radius, float thickness) {
+void displayTimerCircle(const Timer timer, float radius, float thickness, ImVec2 offset = {0,0}) {
     float progress = timer.getTimePassed() / timer.getDuration();
+    ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(radius,0));
     ProgressCircle(progress, radius, thickness, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b,1.f));
+
+    auto text = timer.name.c_str();
+    auto textWidth = ImGui::CalcTextSize(text).x;
+    ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(textWidth*0.5f,0));
+    ImGui::Text(text);
+}
+
+void TextCentered(std::string text) {
+    auto windowWidth = ImGui::GetWindowSize().x;
+    auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
+
+    ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+    ImGui::Text(text.c_str());
 }
 
 struct NewTimerOptions {
@@ -234,10 +248,7 @@ int main()
 
                 float avail = ImGui::GetContentRegionAvail().x;
                 float off = (avail - radius) * 0.5f;
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-                displayTimerCircle(cur, radius, 15.f);
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-                ImGui::Text(cur.name.c_str());
+                displayTimerCircle(cur, radius, 15.f, ImVec2(ImGui::GetCursorPosX() + off,0));
             }
             
             ImGui::SeparatorText("Today's Timers");
@@ -245,9 +256,7 @@ int main()
                 int ind = 0;
 				for (auto& timer : t.getFiltered(false, {"Today"})) {
                     ImGui::TableNextColumn();
-                    displayTimerCircle(timer, 20.f, 10.f);
-
-                    ImGui::Text(timer.name.c_str());
+                    displayTimerCircle(timer, 20.f, 10.f, ImVec2{40.f,0.f});
 
                     std::string startBtnLabel = ">##";
                     startBtnLabel += ind;
