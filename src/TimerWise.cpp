@@ -76,7 +76,7 @@ std::unordered_map<std::string, unsigned int> loadTexturesFromDir(std::filesyste
 }
 
 // Circle code taken from: https://github.com/ocornut/imgui/issues/2020
-auto ProgressCircle(float progress, float radius, float thickness, std::string time, const ImVec4& color) {
+auto ProgressCircle(float progress, float radius, float thickness, std::string time, const ImColor& color, const ImColor& textColor={255,255,255}) {
     ImVec2 offset{ 0,20 };
     auto window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return;
@@ -89,13 +89,6 @@ auto ProgressCircle(float progress, float radius, float thickness, std::string t
     const float a_max = IM_PI * 2.0f * progress;
     const auto&& center = ImVec2(pos.x + radius, pos.y + radius);
 
-    // Timer
-    /*
-    ImGui::SetCursorPosX(pos.x + radius);
-    ImGui::SetCursorPosY(pos.y + radius);
-    ImGui::Text("00:30");
-    ImGui::SameLine();
-*/
     window->DrawList->PathClear();
 
     // Circle's Shadow
@@ -104,8 +97,10 @@ auto ProgressCircle(float progress, float radius, float thickness, std::string t
         window->DrawList->PathLineTo({ center.x + ImCos(a - (IM_PI/2)) * radius, center.y + ImSin(a - (IM_PI/2)) * radius });
     }
     window->DrawList->PathStroke(ImGui::GetColorU32(ImVec4(0.2,0.2,0.2,0.5)), false, thickness);
+
+    // Counter
     auto timeSize = ImGui::CalcTextSize(time.c_str())/2;
-    window->DrawList->AddText({ center.x-timeSize.x, center.y-timeSize.y }, ImColor{ 255,255,255,255 }, time.c_str());
+    window->DrawList->AddText({ center.x-timeSize.x, center.y-timeSize.y }, textColor, time.c_str());
 
     // Hitbox
     const ImRect bb{ pos , pos + size + offset * 2};
@@ -117,13 +112,14 @@ auto ProgressCircle(float progress, float radius, float thickness, std::string t
         const float a = a_min + ((float)i / 100.f) * (a_max - a_min);
         window->DrawList->PathLineTo({ center.x + ImCos(a - (IM_PI/2)) * radius, center.y + ImSin(a - (IM_PI/2)) * radius });
     }
-    window->DrawList->PathStroke(ImGui::GetColorU32(color), false, thickness);
+    window->DrawList->PathStroke(color, false, thickness);
 }
 
 void displayTimerCircle(const Timer& timer, float radius, float thickness, ImVec2 offset = {0,0}) {
     float progress = timer.getTimePassed() / timer.getDuration();
     ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(radius,0));
-    ProgressCircle(progress, radius, thickness, timer.getFormattedTimePassed(), ImVec4(timer.timerColor.r, timer.timerColor.g, timer.timerColor.b, 1.f));
+    auto counterCol = (timer.type == "weekly") ? ImColor{255, 216, 0} : ImColor{255, 255, 255};
+    ProgressCircle(progress, radius, thickness, timer.getFormattedTimePassed(), ImColor(timer.timerColor.r, timer.timerColor.g, timer.timerColor.b), counterCol);
 
     std::string text = timer.name;
     if (text.length() > 17) {
@@ -139,9 +135,11 @@ struct NewTimerOptions {
     char name[20];
     int times[3];
     float color[3];
+    bool isWeekly;
+
     std::vector<std::pair<std::string, bool>> weekDaysSel;
 
-    NewTimerOptions() : seconds(0), name(), times(), color() {
+    NewTimerOptions() : seconds(0), name(), times(), isWeekly(false), color() {
          weekDaysSel = {
             {"Monday",true},
             {"Tuesday",true},
@@ -195,7 +193,7 @@ int main()
 
     NewTimerOptions options{};
 
-    bool show_demo_window = true;
+    bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -227,7 +225,9 @@ int main()
                     ImGui::InputText("Name", options.name, sizeof(options.name));
                     ImGui::InputInt3("Time", options.times);
                     ImGui::ColorEdit3("Timer Color", options.color);
+                    ImGui::Checkbox("Is Weekly", &options.isWeekly);
                    
+                    ImGui::Text("Timer available at: ");
 					if (ImGui::BeginTable("Days", 7, ImGuiTableFlags_Borders, ImVec2(ImGui::GetWindowWidth()*0.4, 1.5))) {
                         for (auto& day : options.weekDaysSel) {
                             ImGui::TableNextColumn();
@@ -251,6 +251,9 @@ int main()
                         // TODO: Proper error
                         if (total.count() == 0) valid = false;
 
+                        std::string type = (options.isWeekly) ? "weekly" : "daily";
+                        std::cout << type << std::endl;
+
                         std::vector<std::string> days;
                         for (auto& day : options.weekDaysSel) {
                             if (!day.second) continue;
@@ -259,7 +262,7 @@ int main()
                        
                         // TODO: Error when returns 1
                         if (valid) {
-                            t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days);
+                            t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days, type);
                         }
                         options = NewTimerOptions{};
                         ImGui::CloseCurrentPopup();

@@ -41,7 +41,7 @@ class Timer {
 	std::vector<std::string> days;
 
 	std::chrono::steady_clock::time_point lastChecked;
-	Timer(std::string name, std::chrono::seconds dur, Color c, std::vector<std::string> days) : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur), days(days), timerColor(c) {
+	Timer(std::string name, std::chrono::seconds dur, Color c, std::string typ, std::vector<std::string> days) : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur), type(typ), days(days), timerColor(c) {
 		lastChecked = std::chrono::steady_clock::now();
 	}
 	Timer(const nlohmann::json& j) {
@@ -51,6 +51,7 @@ class Timer {
 		duration = std::chrono::seconds(j.at("duration"));
 		timePassed = std::chrono::seconds(j.at("timePassed"));
 		j.at("days").get_to(days);
+		j.at("type").get_to(type);
 	}
 
 	// TODO: Figure out how to change the order of attributes
@@ -59,7 +60,7 @@ class Timer {
 			{"name", name}, 
 			{"duration", duration.count()}, 
 			{"timePassed", std::chrono::duration_cast<std::chrono::seconds>(timePassed).count()},
-			{"type", "daily"},
+			{"type", type},
 			{"color", nlohmann::json::array({timerColor.r, timerColor.g, timerColor.b})},
 			{"days",days}
 		};
@@ -67,6 +68,7 @@ class Timer {
 public:
 	std::string name;
 	Color timerColor;
+	std::string type;
 	float getDuration() const {
 		return duration.count();
 	}
@@ -144,9 +146,9 @@ public:
 		}
 	}
 
-	int newTimer(std::string name, std::chrono::seconds duration, Color c, std::vector<std::string> days) {
+	int newTimer(std::string name, std::chrono::seconds duration, Color c, std::vector<std::string> days, std::string type) {
 		if (get(name) != -1 ) return 1;
-		timers.push_back(Timer(name, duration,c, days));
+		timers.push_back(Timer(name, duration, c, type, days));
 		return 0;
 	}
 
