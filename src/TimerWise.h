@@ -82,14 +82,21 @@ public:
 
 
 class Timers {
-	size_t activeTimerInd;
+	// TODO: It should not be an int
+	int activeTimerInd;
 	std::vector<Timer> timers;
 	int day;
 	
 	size_t get(const std::string name) const {
+		for (auto ind = 0; ind < timers.size(); ind++) {
+			if (timers[ind].name == name) return ind;
+		}
+		return -1;
+		/*
 		auto it = std::find_if(timers.begin(), timers.end(), [&name](const Timer& timer) {return timer.name == name; });
 		if (it != timers.end()) return std::distance(timers.begin(), it);
 		return -1;
+		*/
 	}
 
 public: 

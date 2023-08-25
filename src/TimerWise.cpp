@@ -8,6 +8,8 @@
 #include <fstream>
 #include <filesystem>
 #include "TimerWise.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 // TODO: Use as Nvim extension?
 // TODO: Those should be configurable
@@ -24,7 +26,6 @@ static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
-
 
 void loadFiles(Timers& timers) {
     if (std::filesystem::is_directory(DataDir) == 0) {
@@ -47,6 +48,31 @@ void loadFiles(Timers& timers) {
     }else {
         timers.loadDays(DaysFilePath);
     }
+}
+
+std::unordered_map<std::string, unsigned int> loadTexturesFromDir(std::filesystem::path dir, std::vector<std::string>& names) {
+    std::unordered_map<std::string, unsigned int> textures{};
+    for (auto name : names) {
+        unsigned int textureID;
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        int width, height, colorChannels;
+        unsigned char* data = stbi_load((dir / name).string().c_str(), &width, &height, &colorChannels, 0);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            textures[name] = textureID;
+        }
+        else {
+            std::cerr << "Failed to load file: " << name << std::endl;
+        }
+        stbi_image_free(data);
+    }
+    return textures;
 }
 
 // Circle code taken from: https://github.com/ocornut/imgui/issues/2020
@@ -92,7 +118,7 @@ auto ProgressCircle(float progress, float radius, float thickness, const ImVec4&
     window->DrawList->PathStroke(ImGui::GetColorU32(color), false, thickness);
 }
 
-void displayTimerCircle(const Timer timer, float radius, float thickness, ImVec2 offset = {0,0}) {
+void displayTimerCircle(const Timer& timer, float radius, float thickness, ImVec2 offset = {0,0}) {
     float progress = timer.getTimePassed() / timer.getDuration();
     ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(radius,0));
     ProgressCircle(progress, radius, thickness, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b,1.f));
@@ -149,6 +175,10 @@ int main()
 	glViewport(0, 0, 800, 600); 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+    // Load Textures
+    std::vector<std::string> files{ "play.png", "pause.png", "cancel.png"};
+    auto textures = loadTexturesFromDir(DataDir, files);
+
     Timers t{};
     loadFiles(t);
 
@@ -163,7 +193,7 @@ int main()
 
     NewTimerOptions options{};
 
-    bool show_demo_window = false;
+    bool show_demo_window = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -203,6 +233,8 @@ int main()
                         }
                     }
                     ImGui::EndTable();
+                    // TODO: Breaks
+                    // Break every/after x h/min/secs for x h/min/secs
 
                     if (ImGui::Button("Add")) {
                         if (sizeof(options.name) == 0) {
@@ -245,21 +277,40 @@ int main()
                 displayTimerCircle(cur, radius, 20.f, ImVec2(ImGui::GetCursorPosX() + off,0));
             }
             
-            ImGui::SeparatorText("Today's Timers");
+            ImGui::SeparatorText("Timers for Today");
             if(ImGui::BeginTable("TodayTimers", 6)) {
                 int ind = 0;
+                float columnOffset = 50.f;
+                float timerRadius = 30.f;
 				for (auto& timer : t.getFiltered(false, {"Today"})) {
                     ImGui::TableNextColumn();
-                    displayTimerCircle(timer, 30.f, 15.f, ImVec2{50.f,0.f});
-
+                    displayTimerCircle(timer, timerRadius, 15.f, ImVec2{columnOffset,0.f});
+                    /*
                     std::string startBtnLabel = ">##";
                     startBtnLabel += ind;
                     if (ImGui::Button(startBtnLabel.c_str())) {
                         t.stopTimer();
                         t.startTimer(timer.name);
                     }
-                    ImGui::SameLine();
+					*/
+                    //ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, 0.f);
+                    // TODO: Fix weird offset
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (columnOffset/2));
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0,0,0,0 });
+                    ImGui::PushID(ind);
+                    if (ImGui::ImageButton((GLuint*)textures["play.png"], ImVec2{ 10,11 })) {
+                        t.stopTimer();
+                        t.startTimer(timer.name);
+                    }
+                    ImGui::PopID();
+                    ImGui::SameLine(0.f, 0.f);
+                    ImGui::ImageButton((GLuint*)textures["pause.png"], ImVec2{11,11});
+                    ImGui::SameLine(0.f, 0.f);
+                    ImGui::ImageButton((GLuint*)textures["cancel.png"], ImVec2{11,11});
+                    ImGui::PopStyleColor();
+                    //ImGui::PopStyleVar();
 
+                    /*
 					std::string configBtnLabel = "o##";
                     configBtnLabel += ind;
                     if (ImGui::Button(configBtnLabel.c_str())) {}
@@ -269,6 +320,7 @@ int main()
                     deleteBtnLabel += ind;
                     if (ImGui::Button(deleteBtnLabel.c_str())) {}
 
+					*/
                     ind += 1;
                 }
                 ImGui::EndTable();

@@ -24,3 +24,4 @@ FetchContent_Declare(
 	URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz
 )
 add_subdirectory(nlohmann_json)
+
