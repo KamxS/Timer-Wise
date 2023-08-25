@@ -237,24 +237,28 @@ int main()
                     // Break every/after x h/min/secs for x h/min/secs
 
                     if (ImGui::Button("Add")) {
-                        if (sizeof(options.name) == 0) {
-                            // TODO: Proper error
-                            ImGui::CloseCurrentPopup();
-                        }
+                        bool valid = true;
+                        // TODO: Proper error
+                        if (sizeof(options.name) == 0) valid = false;
+
                         std::chrono::hours hourSeconds{ options.times[0] };
                         std::chrono::minutes minuteSeconds{ options.times[1] };
                         std::chrono::seconds seconds{ options.times[2] };
                         std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
 
+                        // TODO: Proper error
+                        if (total.count() == 0) valid = false;
+
                         std::vector<std::string> days;
-                        
                         for (auto& day : options.weekDaysSel) {
                             if (!day.second) continue;
                             days.push_back(day.first);
                         }
                        
                         // TODO: Error when returns 1
-                        t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days);
+                        if (valid) {
+                            t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days);
+                        }
                         options = NewTimerOptions{};
                         ImGui::CloseCurrentPopup();
                     }

@@ -92,11 +92,6 @@ class Timers {
 			if (timers[ind].name == name) return ind;
 		}
 		return -1;
-		/*
-		auto it = std::find_if(timers.begin(), timers.end(), [&name](const Timer& timer) {return timer.name == name; });
-		if (it != timers.end()) return std::distance(timers.begin(), it);
-		return -1;
-		*/
 	}
 
 public: 
