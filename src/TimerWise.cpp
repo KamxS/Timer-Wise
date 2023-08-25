@@ -76,7 +76,7 @@ std::unordered_map<std::string, unsigned int> loadTexturesFromDir(std::filesyste
 }
 
 // Circle code taken from: https://github.com/ocornut/imgui/issues/2020
-auto ProgressCircle(float progress, float radius, float thickness, const ImVec4& color) {
+auto ProgressCircle(float progress, float radius, float thickness, std::string time, const ImVec4& color) {
     ImVec2 offset{ 0,20 };
     auto window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return;
@@ -94,8 +94,8 @@ auto ProgressCircle(float progress, float radius, float thickness, const ImVec4&
     ImGui::SetCursorPosX(pos.x + radius);
     ImGui::SetCursorPosY(pos.y + radius);
     ImGui::Text("00:30");
+    ImGui::SameLine();
 */
-
     window->DrawList->PathClear();
 
     // Circle's Shadow
@@ -104,6 +104,8 @@ auto ProgressCircle(float progress, float radius, float thickness, const ImVec4&
         window->DrawList->PathLineTo({ center.x + ImCos(a - (IM_PI/2)) * radius, center.y + ImSin(a - (IM_PI/2)) * radius });
     }
     window->DrawList->PathStroke(ImGui::GetColorU32(ImVec4(0.2,0.2,0.2,0.5)), false, thickness);
+    auto timeSize = ImGui::CalcTextSize(time.c_str())/2;
+    window->DrawList->AddText({ center.x-timeSize.x, center.y-timeSize.y }, ImColor{ 255,255,255,255 }, time.c_str());
 
     // Hitbox
     const ImRect bb{ pos , pos + size + offset * 2};
@@ -121,7 +123,7 @@ auto ProgressCircle(float progress, float radius, float thickness, const ImVec4&
 void displayTimerCircle(const Timer& timer, float radius, float thickness, ImVec2 offset = {0,0}) {
     float progress = timer.getTimePassed() / timer.getDuration();
     ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(radius,0));
-    ProgressCircle(progress, radius, thickness, ImVec4(timer.timerColor.r,timer.timerColor.g,timer.timerColor.b,1.f));
+    ProgressCircle(progress, radius, thickness, timer.getFormattedTimePassed(), ImVec4(timer.timerColor.r, timer.timerColor.g, timer.timerColor.b, 1.f));
 
     std::string text = timer.name;
     if (text.length() > 17) {

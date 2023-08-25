@@ -71,6 +71,40 @@ public:
 		return duration.count();
 	}
 
+	std::string getFormattedTimePassed() const {
+		std::string out{};
+		auto timePassedSecs = std::chrono::duration_cast<std::chrono::seconds>(timePassed);
+		auto hours = std::chrono::duration_cast<std::chrono::hours>(duration - timePassedSecs);
+		
+		if (hours.count()> 0) {
+			auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration - timePassedSecs - std::chrono::duration_cast<std::chrono::minutes>(hours));
+			auto minutesStr = std::to_string(minutes.count());
+			auto hoursStr = std::to_string(hours.count());
+			if (minutesStr.length() < 2) {
+				minutesStr = "0" + minutesStr;
+			}
+			if (hoursStr.length() < 2) {
+				out = "0" + hoursStr + ":" + minutesStr;
+			}
+			else {
+				out = hoursStr + ":" + minutesStr;
+			}
+		}
+		else {
+			auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration - timePassedSecs);
+			auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration - timePassedSecs - std::chrono::duration_cast<std::chrono::seconds>(minutes));
+			auto secondsStr = std::to_string(seconds.count());
+			auto minutesStr = std::to_string(minutes.count());
+			if (secondsStr.length() < 2) {
+				out = minutesStr + ":" + "0" + secondsStr;
+			}
+			else {
+				out = minutesStr + ":" + secondsStr;
+			}
+		}
+		return out;
+	}
+
 	float getTimePassed() const {
 		return std::chrono::duration_cast<std::chrono::seconds>(timePassed).count();
 	}
