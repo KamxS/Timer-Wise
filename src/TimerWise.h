@@ -122,6 +122,7 @@ class Timers {
 	int activeTimerInd;
 	std::vector<Timer> timers;
 	int day;
+	int week;
 	
 	size_t get(const std::string name) const {
 		for (auto ind = 0; ind < timers.size(); ind++) {
@@ -131,7 +132,7 @@ class Timers {
 	}
 
 public: 
-	Timers(): activeTimerInd(-1), timers(), day(0) {};
+	Timers(): activeTimerInd(-1), timers(), day(0), week(0) {};
 
 	void Update() {
 		if (activeTimerInd == -1) {
@@ -197,8 +198,11 @@ public:
 		f.close();
 	}
 	
-	void resetTimers() {
+	// TODO: Change this
+	void resetTimers(std::string type = "all") {
 		for (auto& t : timers) {
+			if (type == "daily" && t.type != "daily") continue;
+			if (type == "weekly" && t.type != "weekly") continue;
 			t.timePassed = std::chrono::milliseconds(0);
 		}
 	}
@@ -255,27 +259,40 @@ public:
 		tm datetime = getDatetime();
 		int curDay = datetime.tm_yday;
 		if (curDay == day) return;
-		resetTimers();
+		int curWeek = (datetime.tm_yday + 7 - (datetime.tm_wday ? (datetime.tm_wday - 1) : 6)) / 7;
+		if (curWeek != week) {
+			resetTimers();
+		}
+		else {
+			resetTimers("daily");
+		}
 		day = curDay;
+		week = curWeek;
 	}
 	
-	void loadDays(const std::filesystem::path& path) {
+	void loadDate(const std::filesystem::path& path) {
 		std::fstream f(path);
 		if (!f.is_open()) return;
-
-		const size_t length = 3;
-		char buf[length] = "";
-		f.read(buf, length);
-		day = atoi(buf);
+		std::stringstream s{};
+		s << f.rdbuf();
+		std::string buf = s.str();
 		f.close();
+
+		auto ind = buf.find(' ');
+		day = stoi(buf);
+
+		day = stoi(buf.substr(0,ind));
+		if (ind != buf.length()) {
+			week = stoi(buf.substr(ind, buf.length() - ind));
+		}
 		checkTime();
 	}
 
-	void saveDays(const std::filesystem::path& path) {
+	void saveDate(const std::filesystem::path& path) {
 		// TODO: Better saving
 		std::fstream f(path);
 		if (!f.is_open()) return;
-		f << day;
+		f << std::to_string(day) + " " + std::to_string(week);
 		f.close();
 	}
 

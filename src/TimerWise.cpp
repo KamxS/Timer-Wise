@@ -42,11 +42,14 @@ void loadFiles(Timers& timers) {
     }
 
     if(!std::filesystem::exists(DaysFilePath)) {
+        // TODO: It is opening file twice which is not efficient
         std::ofstream output(DaysFilePath);
         output << "";
         output.close();
+        timers.checkTime();
+        timers.saveDate(DaysFilePath);
     }else {
-        timers.loadDays(DaysFilePath);
+        timers.loadDate(DaysFilePath);
     }
 }
 
@@ -354,7 +357,7 @@ int main()
     ImGui::DestroyContext();
 
     t.saveTimers(TimersFilePath);
-    t.saveDays(DaysFilePath);
+    t.saveDate(DaysFilePath);
 
     glfwDestroyWindow(window);
     glfwTerminate();
