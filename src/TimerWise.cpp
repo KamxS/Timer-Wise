@@ -53,6 +53,13 @@ void loadFiles(Timers& timers) {
     }
 }
 
+constexpr int timeSumInSec(int seconds, int minutes = 0, int hours = 0) {
+    std::chrono::seconds secs(seconds);
+    std::chrono::minutes mins(minutes);
+    std::chrono::hours hs(hours);
+    return (hs + mins + secs).count();
+}
+
 std::unordered_map<std::string, unsigned int> loadTexturesFromDir(std::filesystem::path dir, std::vector<std::string>& names) {
     std::unordered_map<std::string, unsigned int> textures{};
     for (auto name : names) {
@@ -133,16 +140,17 @@ void displayTimerCircle(const Timer& timer, float radius, float thickness, ImVec
     ImGui::Text(text.c_str());
 }
 
-struct NewTimerOptions {
+struct TimerInput {
     int seconds;
     char name[20];
     int times[3];
     float color[3];
     bool isWeekly;
+    std::vector<Break> breaks;
 
     std::vector<std::pair<std::string, bool>> weekDaysSel;
 
-    NewTimerOptions() : seconds(0), name(), times(), isWeekly(false), color() {
+    TimerInput() : seconds(0), name(), times(), isWeekly(false), color(), breaks() {
          weekDaysSel = {
             {"Monday",true},
             {"Tuesday",true},
@@ -154,6 +162,15 @@ struct NewTimerOptions {
         };
     }
 };
+
+constexpr char* breakTypes[2] = {"singular", "sequential"};
+constexpr char* timeTypes[3] = {"seconds", "minutes", "hours"};
+struct BreakInput {
+    int breakTypeInd;
+    int breakTiming[3];
+    int breakDuration[3];
+};
+
 
 int main()
 {
@@ -194,9 +211,10 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    NewTimerOptions options{};
+    TimerInput timerInput{};
+    BreakInput breakInput{};
 
-    bool show_demo_window = false;
+    bool show_demo_window = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -218,68 +236,129 @@ int main()
             int ifNoTitleBarFlag = (show_demo_window) ? 0 : ImGuiWindowFlags_NoTitleBar;
             ImGui::Begin("TimeWise", 0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | ifNoTitleBarFlag);
 
+
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::MenuItem("Timer")) {
                     ImGui::OpenPopup("Add Timer");
                 }
 
                 // TODO: Better UI for Timer Adding
-    			if(ImGui::BeginPopupModal("Add Timer")) {
-                    ImGui::InputText("Name", options.name, sizeof(options.name));
-                    ImGui::InputInt3("Time", options.times);
-                    ImGui::ColorEdit3("Timer Color", options.color);
-                    ImGui::Checkbox("Is Weekly", &options.isWeekly);
-                   
+                
+                if(ImGui::BeginPopupModal("Add Timer")) {
+                    ImGui::InputText("Name", timerInput.name, sizeof(timerInput.name));
+                    ImGui::InputInt3("Time", timerInput.times);
+                    ImGui::ColorEdit3("Timer Color", timerInput.color);
+                    ImGui::Checkbox("Is Weekly", &timerInput.isWeekly);
                     ImGui::Text("Timer available at: ");
-					if (ImGui::BeginTable("Days", 7, ImGuiTableFlags_Borders, ImVec2(ImGui::GetWindowWidth()*0.4, 1.5))) {
-                        for (auto& day : options.weekDaysSel) {
+                    if (ImGui::BeginTable("Days", 7, ImGuiTableFlags_Borders, ImVec2(ImGui::GetWindowWidth()*0.4, 1.5))) {
+                        for (auto& day : timerInput.weekDaysSel) {
                             ImGui::TableNextColumn();
-							if(ImGui::Selectable(day.first.substr(0,3).c_str(), day.second, ImGuiSelectableFlags_DontClosePopups)) day.second = !day.second;
+                            if(ImGui::Selectable(day.first.substr(0,3).c_str(), day.second, ImGuiSelectableFlags_DontClosePopups)) day.second = !day.second;
                         }
+                        ImGui::EndTable();
                     }
-                    ImGui::EndTable();
+
                     // TODO: Breaks
                     // Break every/after x h/min/secs for x h/min/secs
+                    if(ImGui::Button("Add Break")) {
+                        ImGui::OpenPopup("Add Break");
+                    }
+                    if(ImGui::BeginPopupModal("Add Break")) {
+                        const char* breakTypes[2] = {"singular", "sequential"};
+                        const char* timeTypes[3] = {"seconds", "minutes", "hours"};
+                        static_assert(sizeof(breakTypes)/sizeof(breakTypes[0]) == 2, "Only two types of breaks are supported");
+                        ImGui::Combo("Break Type", &breakInput.breakTypeInd, breakTypes, 2);
+                        if(breakInput.breakTypeInd== 0) {
+                            ImGui::InputInt3("Break After", breakInput.breakTiming);
+                        }else if(breakInput.breakTypeInd == 1) {
+                            ImGui::InputInt3("Break Every", breakInput.breakTiming);
+                        }
+                        ImGui::InputInt3("Break Duration", breakInput.breakDuration);
+                        if(ImGui::Button("Add")) {
+                            bool valid = true;
+                            BreakType breakType = (breakInput.breakTypeInd == 0) ? BreakType::SINGULAR : BreakType::SEQUENTIAL;
+                            int breakDur = timeSumInSec(breakInput.breakDuration[2],breakInput.breakDuration[1], breakInput.breakDuration[0]); 
+                            if (breakDur == 0) valid = false;
+                            // TODO: User should not be able to create break that takes place after timer's time ending
+                            int breakTiming = timeSumInSec(breakInput.breakTiming[2],breakInput.breakTiming[1], breakInput.breakTiming[0]); 
+                            if(valid) timerInput.breaks.push_back(Break{breakType, breakDur, breakTiming});
+                            breakInput = BreakInput{};
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::SameLine();
+                        if (ImGui::Button("Cancel")) {
+                            breakInput = BreakInput{};
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::EndPopup();
+                    }
+                    ImGui::SameLine();
+                    if(ImGui::Button("Show Breaks")) {
+                        ImGui::OpenPopup("Breaks");
+                    }
+                    if(ImGui::BeginPopupModal("Breaks")) {
+                        if(ImGui::BeginTable("##Breaks", 1)) {
+                            for(auto& b: timerInput.breaks) {
+                                ImGui::TableNextColumn();
+                                std::string info = "Break ";
+                                if(b.type == BreakType::SINGULAR) {
+                                    info += "after ";
+                                }else if(b.type == BreakType::SEQUENTIAL) {
+                                    info += "every ";
+                                }
+                                // TODO: Display time not only in seconds
+                                info += std::to_string(b.breakTimingSecs) + " seconds for ";
+                                info += std::to_string(b.breakDurationSecs) + " seconds";
+                                ImGui::Text(info.c_str());
+                            }
+                            ImGui::EndTable();
+                        }
+                        if (ImGui::Button("Close")) {
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::EndPopup();
+                    }
 
                     if (ImGui::Button("Add")) {
                         bool valid = true;
                         // TODO: Proper error
-                        if (sizeof(options.name) == 0) valid = false;
+                        if (sizeof(timerInput.name) == 0) valid = false;
 
-                        std::chrono::hours hourSeconds{ options.times[0] };
-                        std::chrono::minutes minuteSeconds{ options.times[1] };
-                        std::chrono::seconds seconds{ options.times[2] };
+                        std::chrono::hours hourSeconds{ timerInput.times[0] };
+                        std::chrono::minutes minuteSeconds{ timerInput.times[1] };
+                        std::chrono::seconds seconds{ timerInput.times[2] };
                         std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
 
                         // TODO: Proper error
                         if (total.count() == 0) valid = false;
 
-                        std::string type = (options.isWeekly) ? "weekly" : "daily";
+                        std::string type = (timerInput.isWeekly) ? "weekly" : "daily";
                         std::cout << type << std::endl;
 
                         std::vector<std::string> days;
-                        for (auto& day : options.weekDaysSel) {
+                        for (auto& day : timerInput.weekDaysSel) {
                             if (!day.second) continue;
                             days.push_back(day.first);
                         }
-                       
+
                         // TODO: Error when returns 1
                         if (valid) {
-                            t.newTimer(options.name, std::chrono::seconds{ total }, Color(options.color[0], options.color[1], options.color[2]), days, type);
+                            t.newTimer(timerInput.name, std::chrono::seconds{ total }, Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), days, type);
                         }
-                        options = NewTimerOptions{};
+                        timerInput = TimerInput{};
                         ImGui::CloseCurrentPopup();
                     }
-
                     ImGui::SameLine();
-                    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-
+                    if (ImGui::Button("Cancel")) {
+                        timerInput = TimerInput{};
+                        ImGui::CloseCurrentPopup();
+                    }
                     ImGui::EndPopup();
                 }
-
+                
                 ImGui::EndMenuBar();
             }
-
+                    
             if (t.getActiveTimer().has_value()) {
                 auto cur = t.getActiveTimer().value();
                 const float radius = 40.f;
