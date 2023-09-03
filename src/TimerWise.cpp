@@ -13,9 +13,9 @@
 
 // TODO: Use as Nvim extension?
 // TODO: Those should be configurable
-const std::filesystem::path DataDir = std::filesystem::current_path() / "../data";
-const std::filesystem::path TimersFilePath = std::filesystem::current_path() / DataDir / "timers.json";
-const std::filesystem::path DaysFilePath = std::filesystem::current_path() / DataDir / "days.txt";
+const std::filesystem::path DataDir = std::filesystem::current_path() / "data";
+const std::filesystem::path TimersFilePath = DataDir / "timers.json";
+const std::filesystem::path DaysFilePath = DataDir / "days.txt";
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -174,6 +174,7 @@ struct BreakInput {
 
 int main()
 {
+    std::cout << std::filesystem::current_path().string() << std::endl;
 	glfwInit();
     glfwSetErrorCallback(glfw_error_callback);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -297,6 +298,7 @@ int main()
                         ImGui::OpenPopup("Breaks");
                     }
                     if(ImGui::BeginPopupModal("Breaks")) {
+                        // TODO: Add a way to edit/delete Breaks
                         if(ImGui::BeginTable("##Breaks", 1)) {
                             for(auto& b: timerInput.breaks) {
                                 ImGui::TableNextColumn();
@@ -343,7 +345,10 @@ int main()
 
                         // TODO: Error when returns 1
                         if (valid) {
-                            t.newTimer(timerInput.name, std::chrono::seconds{ total }, Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), days, type);
+                            t.newTimer(timerInput.name, std::chrono::seconds{ total }, 
+                                    Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
+                                    days, type, timerInput.breaks
+                            );
                         }
                         timerInput = TimerInput{};
                         ImGui::CloseCurrentPopup();
