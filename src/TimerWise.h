@@ -35,6 +35,18 @@ struct Break {
     int breakTimingSecs;
     int breakDurationSecs;
     Break(BreakType breakType, int breakTimingSecs, int breakDurationSecs): type(breakType), breakTimingSecs(breakTimingSecs), breakDurationSecs(breakDurationSecs) {}
+    Break(const nlohmann::json &j) {
+        j.at("breakDuration").get_to(breakDurationSecs);
+        j.at("breakTiming").get_to(breakTimingSecs);
+        type = (j.at("type") == "singular") ? BreakType::SINGULAR : BreakType::SEQUENTIAL;
+    }
+    nlohmann::json to_json() const {
+        return nlohmann::json{
+            {"type", (type == BreakType::SINGULAR) ? "singular" : "sequential"},
+            {"breakTiming", breakTimingSecs},
+            {"breakDuration",breakDurationSecs}
+        };
+    }
 };
 
 class Timer {
@@ -46,9 +58,9 @@ class Timer {
 
   std::chrono::steady_clock::time_point lastChecked;
   Timer(std::string name, std::chrono::seconds dur, Color c, std::string typ,
-        std::vector<std::string> days)
+        std::vector<std::string> days, std::vector<Break> breaks)
       : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur),
-        type(typ), days(days), timerColor(c) {
+        type(typ), days(days), timerColor(c), breaks(breaks) {
     lastChecked = std::chrono::steady_clock::now();
   }
   Timer(const nlohmann::json &j) {
@@ -59,10 +71,18 @@ class Timer {
     timePassed = std::chrono::seconds(j.at("timePassed"));
     j.at("days").get_to(days);
     j.at("type").get_to(type);
+    auto breaksJson = j.at("breaks");
+    for(auto& breakJson: breaksJson) {
+        breaks.push_back(Break(breakJson));
+    }
   }
 
   // TODO: Figure out how to change the order of attributes
-  nlohmann::json toJson() const {
+  nlohmann::json to_json() const {
+    std::vector<nlohmann::json> breaksJson{};
+    for(auto& b: breaks) {
+        breaksJson.push_back(b.to_json());
+    }
     return nlohmann::json{
         {"name", name},
         {"duration", duration.count()},
@@ -71,7 +91,8 @@ class Timer {
         {"type", type},
         {"color",
          nlohmann::json::array({timerColor.r, timerColor.g, timerColor.b})},
-        {"days", days}};
+        {"days", days},
+        {"breaks", breaksJson}};
   }
 
 public:
@@ -157,10 +178,10 @@ public:
   }
 
   int newTimer(std::string name, std::chrono::seconds duration, Color c,
-               std::vector<std::string> days, std::string type) {
+               std::vector<std::string> days, std::string type, std::vector<Break> breaks = std::vector<Break>()) {
     if (get(name) != -1)
       return 1;
-    timers.push_back(Timer(name, duration, c, type, days));
+    timers.push_back(Timer(name, duration, c, type, days, breaks));
     return 0;
   }
 
@@ -205,7 +226,7 @@ public:
 
     std::vector<nlohmann::json> jsonVec{};
     for (auto &t : getTimers()) {
-      jsonVec.push_back(t.toJson());
+      jsonVec.push_back(t.to_json());
     }
     nlohmann::json json(jsonVec);
     f << json.dump(4);
