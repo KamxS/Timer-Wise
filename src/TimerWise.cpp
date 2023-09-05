@@ -222,7 +222,7 @@ int main()
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        t.Update();
+        t.update();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();

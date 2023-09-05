@@ -19,8 +19,13 @@ public:
   float g;
   float b;
   Color() : r(0), g(0), b(180) {}
-  Color(float *arr) : r(arr[0]), g(arr[1]), b(arr[2]) {}
   Color(float r, float g, float b) : r(r), g(g), b(b) {}
+  Color(float *arr) : r(arr[0]), g(arr[1]), b(arr[2]) {}
+
+  // TODO: Make ints work
+  //Color(int r, int g, int b) : r(r), g(g), b(b) {}
+  //Color(float r, float g, float b) : r(r * 255), g(g * 255), b(b * 255) {}
+  //Color(float *arr) : r(arr[0] * 255), g(arr[1] * 255), b(arr[2] * 255) {}
 };
 
 constexpr char* DaysOfWeek[7] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
@@ -52,6 +57,7 @@ struct Break {
 class Timer {
   friend class Timers;
   std::chrono::seconds duration;
+  std::chrono::seconds durationWithBreaks;
   std::chrono::milliseconds timePassed;
   std::vector<std::string> days;
   std::vector<Break> breaks;
@@ -67,6 +73,7 @@ class Timer {
     j.at("name").get_to(name);
     auto colorsJson = j.at("color");
     timerColor = Color{colorsJson[0], colorsJson[1], colorsJson[2]};
+    // TODO: Breaks should increase the timer's duration
     duration = std::chrono::seconds(j.at("duration"));
     timePassed = std::chrono::seconds(j.at("timePassed"));
     j.at("days").get_to(days);
@@ -162,18 +169,28 @@ class Timers {
 public:
   Timers() : activeTimerInd(-1), timers(), day(0), week(0){};
 
-  void Update() {
+  void update() {
     if (activeTimerInd == -1) {
       checkTime();
       return;
     };
     Timer &activeTimer = timers[activeTimerInd];
+    // Make timePassed into seconds 
     activeTimer.timePassed +=
         std::chrono::duration_cast<std::chrono::milliseconds>(
             (std::chrono::steady_clock::now() - activeTimer.lastChecked));
     activeTimer.lastChecked = std::chrono::steady_clock::now();
     if (activeTimer.timePassed >= activeTimer.duration) {
       stopTimer();
+    }
+    else {
+        int timePassedS = std::chrono::duration_cast<std::chrono::seconds>(activeTimer.timePassed).count();
+        for(auto& b: activeTimer.breaks) {
+            if(timePassedS >= b.breakTimingSecs && timePassedS <= (b.breakTimingSecs + b.breakDurationSecs)) {
+                std::cout << timePassedS << " BREAK" << std::endl;
+                break;
+            }
+        }
     }
   }
 
