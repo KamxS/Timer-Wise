@@ -140,17 +140,21 @@ void displayTimerCircle(const Timer& timer, float radius, float thickness, ImVec
     ImGui::Text(text.c_str());
 }
 
+constexpr char* breakTypes[2] = {"singular", "sequential"};
+constexpr char* timerTypes[2] = {"daily", "weekly"};
+constexpr char* timeUnits[3] = {"seconds", "minutes", "hours"};
+
 struct TimerInput {
     int seconds;
     char name[20];
     int times[3];
     float color[3];
-    bool isWeekly;
+    int timerTypeInd;
     std::vector<Break> breaks;
 
     std::vector<std::pair<std::string, bool>> weekDaysSel;
 
-    TimerInput() : seconds(0), name(), times(), isWeekly(false), color(), breaks() {
+    TimerInput() : seconds(0), name(), times(), timerTypeInd(0), color(), breaks() {
          weekDaysSel = {
             {"Monday",true},
             {"Tuesday",true},
@@ -163,14 +167,11 @@ struct TimerInput {
     }
 };
 
-constexpr char* breakTypes[2] = {"singular", "sequential"};
-constexpr char* timeTypes[3] = {"seconds", "minutes", "hours"};
 struct BreakInput {
     int breakTypeInd;
     int breakTiming[3];
     int breakDuration[3];
 };
-
 
 int main()
 {
@@ -249,7 +250,8 @@ int main()
                     ImGui::InputText("Name", timerInput.name, sizeof(timerInput.name));
                     ImGui::InputInt3("Time", timerInput.times);
                     ImGui::ColorEdit3("Timer Color", timerInput.color);
-                    ImGui::Checkbox("Is Weekly", &timerInput.isWeekly);
+                    static_assert(sizeof(timerTypes)/sizeof(timerTypes[0]) == 2, "Only two types of timers are supported");
+                    ImGui::Combo("Timer Type", &timerInput.timerTypeInd, timerTypes, 2);
                     ImGui::Text("Timer available at: ");
                     if (ImGui::BeginTable("Days", 7, ImGuiTableFlags_Borders, ImVec2(ImGui::GetWindowWidth()*0.4, 1.5))) {
                         for (auto& day : timerInput.weekDaysSel) {
@@ -326,16 +328,9 @@ int main()
                         // TODO: Proper error
                         if (sizeof(timerInput.name) == 0) valid = false;
 
-                        std::chrono::hours hourSeconds{ timerInput.times[0] };
-                        std::chrono::minutes minuteSeconds{ timerInput.times[1] };
-                        std::chrono::seconds seconds{ timerInput.times[2] };
-                        std::chrono::seconds total = hourSeconds + minuteSeconds + seconds;
-
+                        int total = timeSumInSec(timerInput.times[2], timerInput.times[1], timerInput.times[0]);
                         // TODO: Proper error
-                        if (total.count() == 0) valid = false;
-
-                        std::string type = (timerInput.isWeekly) ? "weekly" : "daily";
-                        std::cout << type << std::endl;
+                        if (total == 0) valid = false;
 
                         std::vector<std::string> days;
                         for (auto& day : timerInput.weekDaysSel) {
@@ -347,7 +342,7 @@ int main()
                         if (valid) {
                             t.newTimer(timerInput.name, std::chrono::seconds{ total }, 
                                     Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
-                                    days, type, timerInput.breaks
+                                    days, timerTypes[timerInput.timerTypeInd], timerInput.breaks
                             );
                         }
                         timerInput = TimerInput{};
