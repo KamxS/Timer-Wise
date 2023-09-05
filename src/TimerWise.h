@@ -31,65 +31,31 @@ public:
 constexpr char* DaysOfWeek[7] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
                                    "Thursday", "Friday", "Saturday"};
 
-enum class BreakType {
-    SINGULAR,SEQUENTIAL
-};
-
-struct Break {
-    BreakType type;
-    int breakTimingSecs;
-    int breakDurationSecs;
-    Break(BreakType breakType, int breakTimingSecs, int breakDurationSecs): type(breakType), breakTimingSecs(breakTimingSecs), breakDurationSecs(breakDurationSecs) {}
-    Break(const nlohmann::json &j) {
-        j.at("breakDuration").get_to(breakDurationSecs);
-        j.at("breakTiming").get_to(breakTimingSecs);
-        type = (j.at("type") == "singular") ? BreakType::SINGULAR : BreakType::SEQUENTIAL;
-    }
-    nlohmann::json to_json() const {
-        return nlohmann::json{
-            {"type", (type == BreakType::SINGULAR) ? "singular" : "sequential"},
-            {"breakTiming", breakTimingSecs},
-            {"breakDuration",breakDurationSecs}
-        };
-    }
-};
-
 class Timer {
   friend class Timers;
   std::chrono::seconds duration;
-  std::chrono::seconds durationWithBreaks;
   std::chrono::milliseconds timePassed;
   std::vector<std::string> days;
-  std::vector<Break> breaks;
 
   std::chrono::steady_clock::time_point lastChecked;
   Timer(std::string name, std::chrono::seconds dur, Color c, std::string typ,
-        std::vector<std::string> days, std::vector<Break> breaks)
+        std::vector<std::string> days)
       : name(name), timePassed(std::chrono::milliseconds(0)), duration(dur),
-        type(typ), days(days), timerColor(c), breaks(breaks) {
+        type(typ), days(days), timerColor(c) {
     lastChecked = std::chrono::steady_clock::now();
   }
   Timer(const nlohmann::json &j) {
     j.at("name").get_to(name);
     auto colorsJson = j.at("color");
     timerColor = Color{colorsJson[0], colorsJson[1], colorsJson[2]};
-    // TODO: Breaks should increase the timer's duration
     duration = std::chrono::seconds(j.at("duration"));
     timePassed = std::chrono::seconds(j.at("timePassed"));
     j.at("days").get_to(days);
     j.at("type").get_to(type);
-    auto breaksJson = j.at("breaks");
-    for(auto& breakJson: breaksJson) {
-        breaks.push_back(Break(breakJson));
-    }
   }
 
   // TODO: Figure out how to change the order of attributes
   nlohmann::json to_json() const {
-    std::vector<nlohmann::json> breaksJson{};
-    for(auto& b: breaks) {
-        breaksJson.push_back(b.to_json());
-    }
     return nlohmann::json{
         {"name", name},
         {"duration", duration.count()},
@@ -98,8 +64,7 @@ class Timer {
         {"type", type},
         {"color",
          nlohmann::json::array({timerColor.r, timerColor.g, timerColor.b})},
-        {"days", days},
-        {"breaks", breaksJson}};
+        {"days", days}};
   }
 
 public:
@@ -112,8 +77,7 @@ public:
     std::string out{};
     auto timePassedSecs =
         std::chrono::duration_cast<std::chrono::seconds>(timePassed);
-    auto hours = std::chrono::duration_cast<std::chrono::hours>(duration -
-                                                                timePassedSecs);
+    auto hours = std::chrono::duration_cast<std::chrono::hours>(duration - timePassedSecs);
 
     if (hours.count() > 0) {
       auto minutes = std::chrono::duration_cast<std::chrono::minutes>(
@@ -183,22 +147,13 @@ public:
     if (activeTimer.timePassed >= activeTimer.duration) {
       stopTimer();
     }
-    else {
-        int timePassedS = std::chrono::duration_cast<std::chrono::seconds>(activeTimer.timePassed).count();
-        for(auto& b: activeTimer.breaks) {
-            if(timePassedS >= b.breakTimingSecs && timePassedS <= (b.breakTimingSecs + b.breakDurationSecs)) {
-                std::cout << timePassedS << " BREAK" << std::endl;
-                break;
-            }
-        }
-    }
   }
 
   int newTimer(std::string name, std::chrono::seconds duration, Color c,
-               std::vector<std::string> days, std::string type, std::vector<Break> breaks = std::vector<Break>()) {
+               std::vector<std::string> days, std::string type) {
     if (get(name) != -1)
       return 1;
-    timers.push_back(Timer(name, duration, c, type, days, breaks));
+    timers.push_back(Timer(name, duration, c, type, days));
     return 0;
   }
 

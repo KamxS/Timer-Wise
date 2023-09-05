@@ -150,11 +150,10 @@ struct TimerInput {
     int times[3];
     float color[3];
     int timerTypeInd;
-    std::vector<Break> breaks;
 
     std::vector<std::pair<std::string, bool>> weekDaysSel;
 
-    TimerInput() : seconds(0), name(), times(), timerTypeInd(0), color(), breaks() {
+    TimerInput() : seconds(0), name(), times(), timerTypeInd(0), color() {
          weekDaysSel = {
             {"Monday",true},
             {"Tuesday",true},
@@ -165,12 +164,6 @@ struct TimerInput {
             {"Sunday",true}
         };
     }
-};
-
-struct BreakInput {
-    int breakTypeInd;
-    int breakTiming[3];
-    int breakDuration[3];
 };
 
 int main()
@@ -214,7 +207,6 @@ int main()
     ImGui_ImplOpenGL3_Init("#version 130");
 
     TimerInput timerInput{};
-    BreakInput breakInput{};
 
     bool show_demo_window = true;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -263,66 +255,6 @@ int main()
 
                     // TODO: Breaks
                     // Break every/after x h/min/secs for x h/min/secs
-                    if(ImGui::Button("Add Break")) {
-                        ImGui::OpenPopup("Add Break");
-                    }
-                    if(ImGui::BeginPopupModal("Add Break")) {
-                        const char* breakTypes[2] = {"singular", "sequential"};
-                        const char* timeTypes[3] = {"seconds", "minutes", "hours"};
-                        static_assert(sizeof(breakTypes)/sizeof(breakTypes[0]) == 2, "Only two types of breaks are supported");
-                        ImGui::Combo("Break Type", &breakInput.breakTypeInd, breakTypes, 2);
-                        if(breakInput.breakTypeInd== 0) {
-                            ImGui::InputInt3("Break After", breakInput.breakTiming);
-                        }else if(breakInput.breakTypeInd == 1) {
-                            ImGui::InputInt3("Break Every", breakInput.breakTiming);
-                        }
-                        ImGui::InputInt3("Break Duration", breakInput.breakDuration);
-                        if(ImGui::Button("Add")) {
-                            bool valid = true;
-                            BreakType breakType = (breakInput.breakTypeInd == 0) ? BreakType::SINGULAR : BreakType::SEQUENTIAL;
-                            int breakDur = timeSumInSec(breakInput.breakDuration[2],breakInput.breakDuration[1], breakInput.breakDuration[0]); 
-                            if (breakDur == 0) valid = false;
-                            // TODO: User should not be able to create break that takes place after timer's time ending
-                            int breakTiming = timeSumInSec(breakInput.breakTiming[2],breakInput.breakTiming[1], breakInput.breakTiming[0]); 
-                            if(valid) timerInput.breaks.push_back(Break{breakType, breakDur, breakTiming});
-                            breakInput = BreakInput{};
-                            ImGui::CloseCurrentPopup();
-                        }
-                        ImGui::SameLine();
-                        if (ImGui::Button("Cancel")) {
-                            breakInput = BreakInput{};
-                            ImGui::CloseCurrentPopup();
-                        }
-                        ImGui::EndPopup();
-                    }
-                    ImGui::SameLine();
-                    if(ImGui::Button("Show Breaks")) {
-                        ImGui::OpenPopup("Breaks");
-                    }
-                    if(ImGui::BeginPopupModal("Breaks")) {
-                        // TODO: Add a way to edit/delete Breaks
-                        if(ImGui::BeginTable("##Breaks", 1)) {
-                            for(auto& b: timerInput.breaks) {
-                                ImGui::TableNextColumn();
-                                std::string info = "Break ";
-                                if(b.type == BreakType::SINGULAR) {
-                                    info += "after ";
-                                }else if(b.type == BreakType::SEQUENTIAL) {
-                                    info += "every ";
-                                }
-                                // TODO: Display time not only in seconds
-                                info += std::to_string(b.breakTimingSecs) + " seconds for ";
-                                info += std::to_string(b.breakDurationSecs) + " seconds";
-                                ImGui::Text(info.c_str());
-                            }
-                            ImGui::EndTable();
-                        }
-                        if (ImGui::Button("Close")) {
-                            ImGui::CloseCurrentPopup();
-                        }
-                        ImGui::EndPopup();
-                    }
-
                     if (ImGui::Button("Add")) {
                         bool valid = true;
                         // TODO: Proper error
@@ -342,7 +274,7 @@ int main()
                         if (valid) {
                             t.newTimer(timerInput.name, std::chrono::seconds{ total }, 
                                     Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
-                                    days, timerTypes[timerInput.timerTypeInd], timerInput.breaks
+                                    days, timerTypes[timerInput.timerTypeInd]
                             );
                         }
                         timerInput = TimerInput{};
