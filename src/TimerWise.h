@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <ctime>
 #include <nlohmann/json.hpp>
@@ -35,7 +37,6 @@ class Timer {
   friend class Timers;
   std::chrono::seconds duration;
   std::chrono::milliseconds timePassed;
-  std::vector<std::string> days;
 
   std::chrono::steady_clock::time_point lastChecked;
   Timer(std::string name, std::chrono::seconds dur, Color c, std::string typ,
@@ -68,10 +69,19 @@ class Timer {
   }
 
 public:
-  std::string name;
-  Color timerColor;
-  std::string type;
-  float getDuration() const { return duration.count(); }
+    std::string name;
+    Color timerColor;
+    std::string type;
+    std::vector<std::string> days;
+    float getDuration() const { return duration.count(); }
+
+    void getDurationArr(int* arr) const {
+        auto hours = std::chrono::duration_cast<std::chrono::hours>(duration);
+        auto minutes = (std::chrono::duration_cast<std::chrono::minutes>(duration) - hours);
+        arr[0] = hours.count();
+        arr[1] = minutes.count();
+        arr[2] = (duration - hours - minutes).count();
+    }
 
   std::string getFormattedTimePassed() const {
     std::string out{};
@@ -217,8 +227,7 @@ public:
   }
 
   // TODO: getFiltered(false, {"(exclude or include)", {"Monday"})
-  const std::vector<Timer>
-  getFiltered(bool active, std::vector<std::string> days = {}) const {
+  const std::vector<Timer> getFiltered(bool active, std::vector<std::string> days = {}) const {
     if (active && days.size() == 0)
       return timers;
 
@@ -257,8 +266,6 @@ public:
     }
     return std::make_optional(timers[activeTimerInd]);
   }
-
-  const std::vector<Timer> getUnavailableTimers() const {}
 
   const std::vector<Timer> getTimers() const { return timers; }
 
