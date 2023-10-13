@@ -1,4 +1,4 @@
-message(STATUS "Fetching Json Lib")
-
-set(JSON_BuildTests OFF CACHE INTERNAL "")
+include(FetchContent)
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
 FetchContent_MakeAvailable(json)
+
