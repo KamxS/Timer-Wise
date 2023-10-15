@@ -1,12 +1,14 @@
 ﻿#include <SDL_render.h>
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
-#include <stdio.h>
+
 #define NO_STDIO_REDIRECT
 #include <SDL.h>
+
 #include "TimerWise.h"
 
 #if defined(IMGUI_IMPL_OPENGL_ES2)
@@ -181,7 +183,7 @@ int main(int, char**)
     // Setup SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
     {
-        printf("Error: %s\n", SDL_GetError());
+        std::cerr << "Error: " << SDL_GetError() << std::endl;
         return -1;
     }
 
@@ -308,6 +310,7 @@ int main(int, char**)
                     }
                     ImGui::SameLine(0.f, 0.f);
                     if(ImGui::ImageButton((void*)config_texture, ImVec2{11,11})) {
+                        // TODO: Pass by pointer
                         timerInput = TimerInput(std::move(*timer));
                         editedTimer = timer->name;
                         ImGui::PushOverrideID(timerConfigPopupID);
@@ -319,27 +322,7 @@ int main(int, char**)
                     }
                     ImGui::PopStyleColor();
                     ImGui::PopID();
-
-                    /*
-                       std::string startBtnLabel = ">##";
-                       startBtnLabel += ind;
-                       if (ImGui::Button(startBtnLabel.c_str())) {
-                       t.stopTimer();
-                       t.startTimer(timer.name);
-                       }
-                       ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, 0.f);
-                       ImGui::PopStyleVar();
-                       std::string configBtnLabel = "o##";
-                       configBtnLabel += ind;
-                       if (ImGui::Button(configBtnLabel.c_str())) {}
-                       ImGui::SameLine();
-
-                       std::string deleteBtnLabel = "X##";
-                       deleteBtnLabel += ind;
-                       if (ImGui::Button(deleteBtnLabel.c_str())) {}
-                       */
-
-                    ind += 1;
+                    ind++;
                 }
                 ImGui::EndTable();
             }
@@ -378,10 +361,20 @@ int main(int, char**)
 
                     // TODO: Error when returns 1
                     if (valid) {
-                        timers.newTimer(timerInput.name, std::chrono::seconds{ total }, 
+                        if(editedTimer != ""){
+                            // TODO: This is stupid
+                            timers.newTimer(timerInput.name, std::chrono::seconds{ total }, 
                                 Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
                                 days, timerTypes[timerInput.timerTypeInd]
-                                );
+                            );
+                            // OMG
+                            timers.timers.erase(timers.timers.begin() + timers.get(editedTimer));
+                        }else {
+                            timers.newTimer(timerInput.name, std::chrono::seconds{ total }, 
+                                Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
+                                days, timerTypes[timerInput.timerTypeInd]
+                            );
+                        }
                     }
                     timerInput = TimerInput{};
                     ImGui::CloseCurrentPopup();

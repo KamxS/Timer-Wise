@@ -123,7 +123,9 @@ public:
   }
 };
 
-class Timers {
+// TODO: getId(vector, name) -> id
+
+struct Timers {
   Timer* active_timer;
   std::vector<Timer*> timers;
   int day;
@@ -137,7 +139,6 @@ class Timers {
     return -1;
   }
 
-public:
   Timers() : active_timer(), timers(), day(0), week(0){};
 
   void update() {
