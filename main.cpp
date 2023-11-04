@@ -9,8 +9,6 @@
 #define NO_STDIO_REDIRECT
 #include <SDL.h>
 
-#include "TimerWise.h"
-
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <SDL_opengles2.h>
 #else
@@ -18,6 +16,8 @@
 #endif
 
 #include <iostream>
+#include <utility>
+#include "TimerWise.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -89,7 +89,7 @@ unsigned int load_texture(std::filesystem::path file_path) {
     return textureID;
 }
 
-void loadFiles(Timers& timers) {
+void loadFiles(std::vector<Timer>& timers) {
     if (std::filesystem::is_directory(DataDir) == 0) {
         std::filesystem::create_directory(DataDir);
     }
@@ -100,27 +100,41 @@ void loadFiles(Timers& timers) {
         output.close();
     }
     else {
-        timers.loadTimers(TimersFilePath);
+        std::fstream f(TimersFilePath);
+        if (!f.is_open()) return;
+
+        nlohmann::json json = nlohmann::json::parse(f);
+        for (auto &j : json) {
+            timers.push_back(Timer(j));
+        }
+        f.close(); 
     }
 
     if(!std::filesystem::exists(DaysFilePath)) {
-        // TODO: It is opening file twice which is not efficient
+        // TODO: It is opening file twice which is not so good i guess
         std::ofstream output(DaysFilePath);
         output << "";
         output.close();
-        timers.checkTime();
-        timers.saveDate(DaysFilePath);
+        reset_timer_vec(timers);
     }else {
-        timers.loadDate(DaysFilePath);
+        std::fstream f(DaysFilePath);
+        if (!f.is_open()) return;
+        std::stringstream s{};
+        s << f.rdbuf();
+        std::string buf = s.str();
+        f.close();
+
+        auto ind = buf.find(' ');
+        Timer::cur_day = stoi(buf.substr(0, ind));
+        if (ind != buf.length()) {
+            Timer::cur_week = stoi(buf.substr(ind, buf.length() - ind));
+        }
+        reset_timer_vec(timers);
     }
 }
 
-// TODO: WTF just use multiplication ??? 
 constexpr int timeSumInSec(int seconds, int minutes = 0, int hours = 0) {
-    std::chrono::seconds secs(seconds);
-    std::chrono::minutes mins(minutes);
-    std::chrono::hours hs(hours);
-    return (hs + mins + secs).count();
+    return seconds+minutes*60+hours*3600;
 }
 
 // Circle code taken from: https://github.com/ocornut/imgui/issues/2020
@@ -163,13 +177,13 @@ auto ProgressCircle(float progress, float radius, float thickness, std::string t
     window->DrawList->PathStroke(color, false, thickness);
 }
 
-void displayTimerCircle(Timer* timer, float radius, float thickness, ImVec2 offset = {0,0}) {
-    float progress = timer->getTimePassed() / timer->getDuration();
+void displayTimerCircle(Timer& timer, float radius, float thickness, ImVec2 offset = {0,0}) {
+    float progress = timer.getTimePassed() / timer.getDuration();
     ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - ImVec2(radius,0));
-    auto counterCol = (timer->type == "weekly") ? ImColor{255, 216, 0} : ImColor{255, 255, 255};
-    ProgressCircle(progress, radius, thickness, timer->getFormattedTimePassed(), ImColor(timer->timerColor.r, timer->timerColor.g, timer->timerColor.b), counterCol);
+    auto counterCol = (timer.type == "weekly") ? ImColor{255, 216, 0} : ImColor{255, 255, 255};
+    ProgressCircle(progress, radius, thickness, timer.getFormattedTimePassed(), ImColor(timer.timerColor.r, timer.timerColor.g, timer.timerColor.b), counterCol);
 
-    std::string text = timer->name;
+    std::string text = timer.name;
     if (text.length() > 17) {
         text = text.substr(0, 17) + "...";
     }
@@ -177,6 +191,7 @@ void displayTimerCircle(Timer* timer, float radius, float thickness, ImVec2 offs
     ImGui::SetCursorPos(ImGui::GetCursorPos() + offset - textOff);
     ImGui::Text(text.c_str());
 }
+
 
 int main(int, char**)
 {
@@ -228,17 +243,18 @@ int main(int, char**)
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     std::unordered_map<std::string, unsigned int>textures{};
-    Timers timers{};
+    std::vector<Timer> timers{};
+    size_t active_timer = -1;
     loadFiles(timers);
 
     unsigned int play_texture = load_texture(DataDir / "play.png");
     unsigned int config_texture = load_texture(DataDir / "config.png");
-    unsigned int cancel_texture = load_texture(DataDir / "cancel.png");
+    unsigned int remove_texture = load_texture(DataDir / "remove.png");
     unsigned int pause_texture = load_texture(DataDir / "pause.png");
 
     TimerInput timerInput{};
     ImGuiID timerConfigPopupID = ImHashStr( "Timer Config" );
-    std::string editedTimer = "";
+    Timer* edited_timer = nullptr;
 
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -257,7 +273,18 @@ int main(int, char**)
                 done = true;
         }
 
-        timers.update();
+        if (active_timer == -1) {
+            reset_timer_vec(timers); 
+        }else {
+            timers[active_timer].timePassed +=
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                (std::chrono::steady_clock::now() - timers[active_timer].lastChecked));
+
+            timers[active_timer].lastChecked = std::chrono::steady_clock::now();
+            if (timers[active_timer].timePassed >= timers[active_timer].duration) {
+                active_timer = -1;
+            }
+        }
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -282,13 +309,12 @@ int main(int, char**)
                 ImGui::EndMenuBar();
             }
 
-            if (timers.getActiveTimer() != nullptr) {
-                auto activeTimer = timers.getActiveTimer();
+            if (active_timer != -1) {
                 const float radius = 40.f;
 
                 float avail = ImGui::GetContentRegionAvail().x;
                 float off = (avail - radius) * 0.5f;
-                displayTimerCircle(activeTimer, radius, 20.f, ImVec2(ImGui::GetCursorPosX() + off,0));
+                displayTimerCircle(timers[active_timer], radius, 20.f, ImVec2(ImGui::GetCursorPosX() + off,0));
             }
 
             ImGui::SeparatorText("Timers for Today");
@@ -296,29 +322,57 @@ int main(int, char**)
                 int ind = 0;
                 float columnOffset = 50.f;
                 float timerRadius = 30.f;
-                for (auto& timer : timers.getFiltered(false, {"Today"})) {
+                // TODO: Change this
+                static const char* days[] = {
+                    "Sunday", "Monday", "Tuesday", "Wednesday", 
+                    "Thursday", "Friday", "Saturday"
+                };
+                static auto f = [&](Timer& timer) {
+                    bool valid = false;
+                    if (timer.days.size() != 0) {
+                        for (auto timer_day : timer.days) {
+                            if(timer_day == days[Timer::get_datetime().tm_wday]) valid=true;
+                        }
+                    }
+                    if(valid) {
+                        if(active_timer==-1) return true;
+                        return !(timer.name == timers[active_timer].name);
+                    }else {
+                        return false;
+                    }
+                };
+                for (auto& timer : timers | std::views::filter(f)) {
                     ImGui::TableNextColumn();
                     displayTimerCircle(timer, timerRadius, 15.f, ImVec2{columnOffset,0.f});
                     // TODO: Fix weird offset
                     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (columnOffset/2));
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0,0,0,0 });
                     ImGui::PushID(ind);
-                    //if (ImGui::ImageButton((GLuint*)textures["play.png"], ImVec2{ 10,11 })) {
+
                     if (ImGui::ImageButton((void*)play_texture, ImVec2{ 10, 11})) {
-                        timers.stopTimer();
-                        timers.startTimer(timer->name);
+                        timer.lastChecked = std::chrono::steady_clock::now();
+                        active_timer = get_timer_from_name(timers, timer.name);
                     }
                     ImGui::SameLine(0.f, 0.f);
                     if(ImGui::ImageButton((void*)config_texture, ImVec2{11,11})) {
                         // TODO: Pass by pointer
-                        timerInput = TimerInput(std::move(*timer));
-                        editedTimer = timer->name;
+                        timerInput = TimerInput(std::move(timer));
+                        edited_timer = &timer;
                         ImGui::PushOverrideID(timerConfigPopupID);
                         ImGui::OpenPopup("Timer Config");
                         ImGui::PopID();
                     }
                     ImGui::SameLine(0.f, 0.f);
-                    if(ImGui::ImageButton((void*)cancel_texture, ImVec2{11,11})) {
+                    // TODO: Add "are you sure?" popup
+                    if(ImGui::ImageButton((void*)remove_texture, ImVec2{11,11})) {
+                        /*
+                        //timers.erase(std::remove_if(timers.begin(), timers.end(), [timer](Timer& t) {return (t.name!=timer.name);}),timers.end());
+                        auto filtered= std::remove_if(timers.begin(), timers.end(), [timer](Timer& t) {return (t.name!=timer.name);});
+                        if(active_timer != -1) {
+                            // TODO: Update active timer
+                        }
+                        timers.erase(filtered, timers.end());
+                        */
                     }
                     ImGui::PopStyleColor();
                     ImGui::PopID();
@@ -361,26 +415,26 @@ int main(int, char**)
 
                     // TODO: Error when returns 1
                     if (valid) {
-                        if(editedTimer != ""){
-                            // TODO: This is stupid
-                            timers.newTimer(timerInput.name, std::chrono::seconds{ total }, 
+                        if(edited_timer !=nullptr) { 
+                            auto time_passed = edited_timer->timePassed;
+                            *edited_timer = Timer(timerInput.name, std::chrono::seconds{ total }, 
                                 Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
-                                days, timerTypes[timerInput.timerTypeInd]
-                            );
-                            // OMG
-                            timers.timers.erase(timers.timers.begin() + timers.get(editedTimer));
+                                days, timerTypes[timerInput.timerTypeInd]);
+                            edited_timer->timePassed = time_passed;
                         }else {
-                            timers.newTimer(timerInput.name, std::chrono::seconds{ total }, 
+                            timers.push_back(Timer(timerInput.name, std::chrono::seconds{ total }, 
                                 Color(timerInput.color[0], timerInput.color[1], timerInput.color[2]), 
                                 days, timerTypes[timerInput.timerTypeInd]
-                            );
+                            ));
                         }
                     }
+                    edited_timer = nullptr;
                     timerInput = TimerInput{};
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Cancel")) {
+                    edited_timer = nullptr;
                     timerInput = TimerInput{};
                     ImGui::CloseCurrentPopup();
                 }
@@ -398,21 +452,17 @@ int main(int, char**)
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
     }
+    save_timer_vec(timers, TimersFilePath);
+    Timer::save_date(DaysFilePath);
+
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-
-    timers.saveTimers(TimersFilePath);
-    timers.saveDate(DaysFilePath);
-
+    
     SDL_GL_DeleteContext(gl_context);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
     return 0;
 }
-    // Load Textures
-    //std::vector<std::string> files{ "play.png", "pause.png", "cancel.png", "config.png"};
-    //auto textures = loadTexturesFromDir(DataDir, files);
-
