@@ -21,7 +21,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-// TODO: Use as Nvim extension?
 // TODO: Those should be configurable
 const std::filesystem::path DataDir = std::filesystem::current_path() / "data";
 const std::filesystem::path TimersFilePath = DataDir / "timers.json";
@@ -47,7 +46,7 @@ struct TimerInput {
             {"Sunday",true}
         };
     }
-    TimerInput(Timer&& timer) :  name(), times(), color() {
+    TimerInput(Timer& timer) :  name(), times(), color() {
         strcpy_s(name, timer.name.c_str());
         timerTypeInd = (timer.type == "daily") ? 0 : 1;
         timer.getDurationArr(times);
@@ -277,13 +276,6 @@ int main(int, char**)
         if(timers_to_remove.size() != 0) {
             for(auto& tname: timers_to_remove) {
                 timers.erase(std::remove_if(timers.begin(), timers.end(), [tname](Timer& t) {return (t.name==tname);}),timers.end());
-                /*
-                   auto filtered= std::remove_if(timers.begin(), timers.end(), [timer](Timer& t) {return (t.name!=timer.name);});
-                   if(active_timer != -1) {
-                // TODO: Update active timer
-                }
-                timers.erase(filtered, timers.end());
-                */
             }
             timers_to_remove.clear();
         }
@@ -371,7 +363,7 @@ int main(int, char**)
                     ImGui::SameLine(0.f, 0.f);
                     if(ImGui::ImageButton((void*)config_texture, ImVec2{11,11})) {
                         // TODO: Pass by pointer
-                        timerInput = TimerInput(std::move(timer));
+                        timerInput = TimerInput(timer);
                         edited_timer = &timer;
                         ImGui::PushOverrideID(timerConfigPopupID);
                         ImGui::OpenPopup("Timer Config");
@@ -461,7 +453,8 @@ int main(int, char**)
         SDL_GL_SwapWindow(window);
     }
     save_timer_vec(timers, TimersFilePath);
-    Timer::save_date(DaysFilePath);
+    auto date = std::to_string(Timer::cur_day) + " " + std::to_string(Timer::cur_week);
+    save_date(date, DaysFilePath);
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();

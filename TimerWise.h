@@ -125,13 +125,6 @@ struct Timer {
         return datetime;
     }
 
-    static void save_date(const std::filesystem::path &path) {
-        std::fstream f(path);
-        if (!f.is_open()) return;
-        f << std::to_string(Timer::cur_day) + " " + std::to_string(Timer::cur_week);
-        f.close();
-    }
-
     static bool update_day() {
         tm datetime = get_datetime();
         int new_day = datetime.tm_yday;
@@ -178,4 +171,12 @@ void save_timer_vec(std::vector<Timer>& timers, const std::filesystem::path &pat
     nlohmann::json json(jsonVec);
     f << json.dump(4);
     f.close();
+}
+
+void save_date(std::string& date, const std::filesystem::path &path) {
+    std::fstream f(path);
+    if (!f.is_open()) return;
+    f << date;
+    f.close();
+
 }
