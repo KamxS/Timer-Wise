@@ -255,6 +255,7 @@ int main(int, char**)
     TimerInput timerInput{};
     ImGuiID timerConfigPopupID = ImHashStr( "Timer Config" );
     Timer* edited_timer = nullptr;
+    std::vector<std::string> timers_to_remove{};
 
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -271,6 +272,20 @@ int main(int, char**)
                 done = true;
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
                 done = true;
+        }
+
+        if(timers_to_remove.size() != 0) {
+            for(auto& tname: timers_to_remove) {
+                timers.erase(std::remove_if(timers.begin(), timers.end(), [tname](Timer& t) {return (t.name==tname);}),timers.end());
+                /*
+                   auto filtered= std::remove_if(timers.begin(), timers.end(), [timer](Timer& t) {return (t.name!=timer.name);});
+                   if(active_timer != -1) {
+                // TODO: Update active timer
+                }
+                timers.erase(filtered, timers.end());
+                */
+            }
+            timers_to_remove.clear();
         }
 
         if (active_timer == -1) {
@@ -365,14 +380,7 @@ int main(int, char**)
                     ImGui::SameLine(0.f, 0.f);
                     // TODO: Add "are you sure?" popup
                     if(ImGui::ImageButton((void*)remove_texture, ImVec2{11,11})) {
-                        /*
-                        //timers.erase(std::remove_if(timers.begin(), timers.end(), [timer](Timer& t) {return (t.name!=timer.name);}),timers.end());
-                        auto filtered= std::remove_if(timers.begin(), timers.end(), [timer](Timer& t) {return (t.name!=timer.name);});
-                        if(active_timer != -1) {
-                            // TODO: Update active timer
-                        }
-                        timers.erase(filtered, timers.end());
-                        */
+                        timers_to_remove.push_back(timer.name);
                     }
                     ImGui::PopStyleColor();
                     ImGui::PopID();

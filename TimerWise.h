@@ -168,9 +168,8 @@ void reset_timer_vec(std::vector<Timer>& timers) {
 }
 
 void save_timer_vec(std::vector<Timer>& timers, const std::filesystem::path &path) {
-    std::fstream f(path);
-    if (!f.is_open())
-      return;
+    std::ofstream f(path, std::ofstream::trunc);
+    if (!f.is_open()) return;
 
     std::vector<nlohmann::json> jsonVec{};
     for (auto& timer : timers) {
